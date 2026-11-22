@@ -1,6 +1,6 @@
 // The top strip: the trip card, then every note and day end in timeline order.
 import type { Day, Note, TripView } from "../src/shared/api";
-import { dayColour, dayMonth, dayOnly, esc, hhmm, icon, km, noteTitle, weekday } from "./util";
+import { dayColour, dayMonth, dayNo, dayOnly, esc, hhmm, icon, km, noteTitle, weekday } from "./util";
 
 export interface Strip {
   render(view: TripView): void;
@@ -17,7 +17,7 @@ function chip(n: Note, day: Day | undefined): string {
     const s = day?.stats;
     const line = s ? `${km(s.km)} km · ↑${Math.round(s.ascent_m)} m` : "Ruhetag";
     return `<button class="chip day" data-key="${n.key}" style="--day:${dayColour(n.day)}">
-      <span class="top"><span class="num">${icon.flag}${n.day}</span>${esc(weekday(n.anchor.t))} ${n.anchor.rule === "rest-day" ? "" : hhmm(n.anchor.t)}</span>
+      <span class="top"><span class="num">${icon.flag}${dayNo(n.day)}</span>${esc(weekday(n.anchor.t))} ${n.anchor.rule === "rest-day" ? "" : hhmm(n.anchor.t)}</span>
       <span class="t">${esc(noteTitle(n, day))}</span><span class="sub">${line}</span></button>`;
   }
   const count = n.media.length ? `<span class="cam">${icon.camera}${n.media.length}</span>` : "";

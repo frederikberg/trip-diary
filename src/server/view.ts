@@ -27,6 +27,7 @@ export const tripOut = (t: TripRow, editable = true): Trip => ({
   start_date: t.start_date,
   extra: editable ? JSON.parse(t.extra) : {},
   privacy: privacyOf(t),
+  day_offset: t.day_offset,
 });
 
 export function shareOut(s: ShareRow, publicUrl: string): Share {

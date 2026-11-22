@@ -5,7 +5,7 @@
 import type { Note, Suggestion } from "../src/shared/api";
 import { type Api, ApiFailure } from "./api";
 import { immichAssetId } from "./immich-link";
-import { $, clock, esc, hhmm, icon, label, longDate, toast } from "./util";
+import { $, clock, dayNo, esc, hhmm, icon, label, longDate, toast } from "./util";
 
 /** Hours the window spans; "früher" and "später" move it by as much. */
 const WINDOW_H = 4;
@@ -28,7 +28,7 @@ const ATTACH_ERRORS: Record<number, string> = {
   409: "Dieses Foto hängt schon an dieser Notiz.",
 };
 
-const noteName = (key: string) => (key.startsWith("d") ? `Tag ${key.slice(1)}` : key);
+const noteName = (key: string) => (key.startsWith("d") ? `Tag ${dayNo(Number(key.slice(1)))}` : key);
 
 export function createPicker(host: PickerHost): { open(n: Note): void } {
   const { api } = host;

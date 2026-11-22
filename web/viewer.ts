@@ -2,7 +2,7 @@
 // the note that owns the item shown last.
 import PhotoSwipe, { type SlideData } from "photoswipe";
 import type { Media, Note } from "../src/shared/api";
-import { esc, icon, label, noteTitle, toast } from "./util";
+import { dayNo, esc, icon, label, noteTitle, toast } from "./util";
 
 interface Slide {
   note: Note;
@@ -91,7 +91,7 @@ export function openViewer(o: ViewerOptions): void {
         el.className = "pswp__note";
         const upd = () => {
           const s = current();
-          el.innerHTML = `<b>${s.note.kind === "day" ? `${icon.flag}${s.note.day}` : s.note.number}</b><span>${esc(noteTitle(s.note))}</span>`;
+          el.innerHTML = `<b>${s.note.kind === "day" ? `${icon.flag}${dayNo(s.note.day)}` : s.note.number}</b><span>${esc(noteTitle(s.note))}</span>`;
         };
         pswp.on("change", upd);
         upd();

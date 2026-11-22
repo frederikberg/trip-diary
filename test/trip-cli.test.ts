@@ -353,6 +353,20 @@ describe("trips and links", () => {
     expect(seen.at(-1)).toMatchObject({ method: "DELETE", path: "/api/admin/trips/scratch/shares/9" });
   });
 
+  test("a day offset is set as a number and show names the day the way it is shown", async () => {
+    reset();
+    const set = await trp("set", "scratch", "--day-offset", "-1");
+    expect(set.code).toBe(0);
+    expect(seen.at(-1)?.body).toEqual({ day_offset: -1 });
+    trip.days = [{ n: 1, date: "2026-10-16", track: [], stats: null, end: null, source: null }];
+    const out = (await trp("show", "scratch")).out;
+    expect(out).toContain("day offset -1");
+    expect(out).toContain("day 1 (Tag 0)  2026-10-16");
+    expect((await trp("set", "scratch", "--day-offset", "x")).err).toContain("--day-offset needs a number");
+    await trp("new", "prep", "--title", "P", "--timezone", "Europe/Berlin", "--day-offset", "-2");
+    expect(seen.at(-1)?.body).toMatchObject({ slug: "prep", day_offset: -2 });
+  });
+
   test("a wrong token surfaces the 401", async () => {
     writeFileSync(join(dir, "bad"), "nope");
     const p = Bun.spawn(
