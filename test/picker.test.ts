@@ -8,6 +8,7 @@ import { type FakeAsset, type FakeImmich, fakeImmich, IMMICH_KEY, seedTrip, type
 const PHOTO = "77777777-7777-4777-8777-777777777777";
 const VIDEO = "88888888-8888-4888-8888-888888888888";
 const LIVE = "99999999-9999-4999-8999-999999999999";
+const TRASHED = "66666666-6666-4666-8666-666666666666";
 
 let immich: FakeImmich;
 let app: TestApp;
@@ -22,6 +23,14 @@ beforeAll(async () => {
   asset(VIDEO, "VIDEO", "2026-10-16T09:30:00.000Z");
   asset(PHOTO, "IMAGE", "2026-10-16T09:00:00.000Z");
   asset(LIVE, "IMAGE", new Date(today + 600_000).toISOString());
+  immich.assets.set(TRASHED, {
+    id: TRASHED,
+    type: "IMAGE",
+    width: 4000,
+    height: 3000,
+    taken_at: "2026-10-16T10:00:00.000Z",
+    trashed: true,
+  });
   app = testApp(immich.url);
   s = await seedTrip(app);
 });
@@ -31,7 +40,7 @@ const picker = (path: string, editor = true) => app.call(`/api/t/${s.view}${path
 const span = (from: string, to: string) => `/suggest?${new URLSearchParams({ from, to })}`;
 
 describe("the picker's search", () => {
-  test("lists the assets of a window oldest first, videos with their length, and what carries them", async () => {
+  test("lists the assets of a window oldest first, videos with their length, what carries them, and nothing trashed", async () => {
     const n = (await (
       await app.call(`/api/t/${s.view}/notes`, {
         method: "POST",

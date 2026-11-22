@@ -125,7 +125,8 @@
  *                                                     track span, an hour either side) → Suggestion[],
  *                                                     oldest first: the key's own and its partners'
  *                                                     assets and, when the key has album.read, those
- *                                                     of albums shared with it, each once. Clamped to
+ *                                                     of albums shared with it, each once, none in
+ *                                                     Immich's trash. Clamped to
  *                                                     the trip's window, 12 h either side: the span
  *                                                     of its tracks, its notes' anchors, start_date
  *                                                     and its days' dates.

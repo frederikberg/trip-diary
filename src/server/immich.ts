@@ -189,13 +189,14 @@ export class Immich {
     const albumIds = (await this.sharedAlbums())
       .filter((a) => a.start < hi + DAY_MS && a.end + 2 * DAY_MS > lo)
       .map((a) => a.id);
-    const takenAt = { gte: from, lt: to };
+    // Immich's search includes trashed assets unless told otherwise.
+    const base = { takenAt: { gte: from, lt: to }, trashedAt: { eq: null } };
     if (albumIds.length)
       try {
         // A branch naming albums searches them whoever owns their assets; the other branch is the
         // key's own library, as a search without albums is.
         return await this.searchFilter({
-          takenAt,
+          ...base,
           or: [{ type: { in: ["IMAGE", "VIDEO"] } }, { albumIds: { any: albumIds } }],
         });
       } catch (e) {
@@ -204,7 +205,7 @@ export class Immich {
         this.albums = null;
         console.warn("shared albums: Immich refused the album search; searching the key's own assets only");
       }
-    return this.searchFilter({ takenAt });
+    return this.searchFilter(base);
   }
 
   private async searchFilter(filter: Record<string, unknown>): Promise<AssetInfo[]> {
