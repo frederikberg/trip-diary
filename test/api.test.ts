@@ -1,6 +1,6 @@
 // Notes, media and admin routes end to end against a temporary database and a fake Immich.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import type { Media, Note, Suggestion, TripAdminView, TripView } from "../src/shared/api";
+import type { Day, Media, Note, Suggestion, TripAdminView, TripView } from "../src/shared/api";
 import fixture from "./fixtures/hike.json";
 import { type FakeImmich, fakeImmich, onTrack, seedTrip, type TestApp, testApp } from "./helpers";
 
@@ -286,6 +286,31 @@ describe("admin and views", () => {
     expect(r.status).toBe(200);
     expect(((await r.json()) as { end: { camp_type: unknown } }).end.camp_type).toBeNull();
     expect((await app.call("/api/admin/trips/sample/days/9", { method: "DELETE", admin: true })).status).toBe(204);
+  });
+
+  test("a day's breaks are validated, stored and returned; without breaks the field is absent", async () => {
+    const track = [0, 1, 2, 3].map((i) => [49.9, 7.5 + i * 0.01, 300, `2026-10-20T1${i}:00:00+02:00`]);
+    const put = (breaks?: unknown) =>
+      app.call("/api/admin/trips/sample/days/9", {
+        method: "PUT",
+        admin: true,
+        json: {
+          date: "2026-10-20",
+          track,
+          ...(breaks === undefined ? {} : { breaks }),
+          stats: null,
+          end: null,
+          source: null,
+        },
+      });
+    for (const bad of [[0], [4], [2, 2], [3, 1], [1.5], "2"]) expect((await put(bad)).status).toBe(400);
+    const ok = await put([2]);
+    expect(ok.status).toBe(200);
+    expect(((await ok.json()) as Day).breaks).toEqual([2]);
+    const view = (await (await app.call("/api/admin/trips/sample", { admin: true })).json()) as { days: Day[] };
+    expect(view.days.find((d) => d.n === 9)?.breaks).toEqual([2]);
+    expect(((await (await put()).json()) as Day).breaks).toBeUndefined();
+    await app.call("/api/admin/trips/sample/days/9", { method: "DELETE", admin: true });
   });
 
   test("trip list and patch", async () => {

@@ -10,6 +10,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - A third video switch, repeat (off by default): a single video loops and several start over after the last only when it is on.
+- A day made of several recordings (a ride, a train, a ride again) keeps where each one starts (`breaks` on the day). The map draws the jump between two recordings as a thin dashed line instead of a ridden one; notes never snap to it, it adds no kilometres, and the elevation profile breaks there.
+- `trip days import-gpx` makes one day from the files of one date and marks the recordings: separate files, several `<trkseg>` in a file, and a pause of five minutes with a jump of a kilometre inside one.
 
 ## [0.11.0] - 2026-11-22
 

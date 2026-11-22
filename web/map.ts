@@ -58,7 +58,9 @@ export function createMap(el: HTMLElement): MapView {
   const pois = L.layerGroup().addTo(map);
   const pinsLayer = L.layerGroup().addTo(map);
   const pendingLayer = L.layerGroup().addTo(map);
-  const lines = new Map<number, L.Polyline>();
+  const lines = new Map<number, L.FeatureGroup>();
+  /** The stretches between a day's recordings: not ridden, drawn thin and dashed. */
+  const gaps = new Map<number, L.Polyline[]>();
   const pins = new Map<string, { marker: L.Marker; note: Note }>();
   let selected: string | null = null;
   let selectedDay: number | null = null;
@@ -86,7 +88,9 @@ export function createMap(el: HTMLElement): MapView {
   const zIndex = (n: Note, sel: boolean) => (sel ? 5000 : n.kind === "day" ? 600 : 700);
 
   function styleLines() {
-    for (const [day, line] of lines)
+    for (const [day, line] of lines) {
+      for (const g of gaps.get(day) ?? [])
+        g.setStyle({ opacity: selectedDay == null || day === selectedDay ? 0.9 : 0.5 });
       line.setStyle(
         selectedDay == null
           ? { opacity: 0.9, weight: 5 }
@@ -94,6 +98,7 @@ export function createMap(el: HTMLElement): MapView {
             ? { opacity: 1, weight: 6 }
             : { opacity: 0.5, weight: 4 },
       );
+    }
   }
 
   function zoomClasses() {
@@ -109,12 +114,34 @@ export function createMap(el: HTMLElement): MapView {
     render(view) {
       tracks.clearLayers();
       lines.clear();
+      gaps.clear();
       const all: L.LatLngExpression[] = [];
       for (const d of view.days) {
         if (!d.track.length) continue;
         const pts = d.track.map((p) => [p[0], p[1]] as L.LatLngTuple);
         all.push(...pts);
-        const line = L.polyline(pts, { color: dayColour(d.n), weight: 5, opacity: 0.9, interactive: false });
+        const colour = dayColour(d.n);
+        const cuts = [0, ...(d.breaks ?? []), pts.length];
+        const line = L.featureGroup();
+        const dashed: L.Polyline[] = [];
+        for (let i = 1; i < cuts.length; i++) {
+          const from = cuts[i - 1] as number;
+          const to = cuts[i] as number;
+          line.addLayer(
+            L.polyline(pts.slice(from, to), { color: colour, weight: 5, opacity: 0.9, interactive: false }),
+          );
+          if (i > 1)
+            dashed.push(
+              L.polyline([pts[from - 1], pts[from]] as L.LatLngTuple[], {
+                color: colour,
+                weight: 2,
+                opacity: 0.9,
+                dashArray: "4 8",
+                interactive: false,
+              }).addTo(tracks),
+            );
+        }
+        gaps.set(d.n, dashed);
         lines.set(d.n, line.addTo(tracks));
       }
       styleLines();

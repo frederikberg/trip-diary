@@ -1,5 +1,5 @@
 // Sample notes and media on the sample hike's tracks, for the self-test and for local development.
-import type { Day, Note } from "../src/shared/api";
+import type { Day, DayPut, Note } from "../src/shared/api";
 import fixture from "../test/fixtures/hike.json";
 import type { FakeImmich, TestApp } from "../test/helpers";
 
@@ -107,9 +107,48 @@ const DAY_TEXT: Record<number, string> = {
   5: "Letzte Nacht draußen.",
 };
 
+/** A sixth day of two rides with a train in between: `breaks` marks where the second ride starts. */
+function twoRideDay(): DayPut {
+  const ride = (from: [number, number], to: [number, number], start: string): Day["track"] =>
+    Array.from({ length: 24 }, (_, i) => {
+      const f = i / 23;
+      const wobble = Math.sin(f * 9) * 0.0012;
+      return [
+        +(from[0] + (to[0] - from[0]) * f + wobble).toFixed(6),
+        +(from[1] + (to[1] - from[1]) * f).toFixed(6),
+        300 + Math.round(f * 30),
+        new Date(Date.parse(start) + i * 150_000).toISOString(),
+      ];
+    });
+  const track = [
+    ...ride([49.8663, 7.476], [49.882, 7.51], "2026-10-20T09:00:00+02:00"),
+    ...ride([49.93, 7.6], [49.945, 7.64], "2026-10-20T11:00:00+02:00"),
+  ];
+  return {
+    date: "2026-10-20",
+    track,
+    breaks: [24],
+    stats: {
+      km: 5.2,
+      ascent_m: 60,
+      descent_m: 30,
+      start_time: track[0]?.[3] as string,
+      end_time: track.at(-1)?.[3] as string,
+      moving_time_min: 40,
+      elapsed_time_min: 175,
+      min_ele: 300,
+      max_ele: 330,
+    },
+    end: { lat: 49.945, lon: 7.64, camp_type: null, name: null },
+    source: null,
+  };
+}
+
 /** Adds the sample notes through the admin API; returns them in creation order. */
 export async function addSample(app: TestApp, immich: FakeImmich, slug = "sample"): Promise<Note[]> {
   const out: Note[] = [];
+  const day = await app.call(`/api/admin/trips/${slug}/days/6`, { method: "PUT", admin: true, json: twoRideDay() });
+  if (day.status !== 200) throw new Error(`day 6: ${day.status} ${await day.text()}`);
   for (const n of NOTES) {
     const pos = typeof n.at === "string" ? { lat: null, lon: null, t: n.at } : along(...n.at);
     const res = await app.call(`/api/admin/trips/${slug}/notes`, {

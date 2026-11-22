@@ -227,6 +227,7 @@ export const MIGRATIONS = [
    DROP TABLE note;
    ALTER TABLE note_new RENAME TO note;
    CREATE UNIQUE INDEX note_client ON note (trip_id, client_id) WHERE client_id IS NOT NULL;`,
+  `ALTER TABLE day ADD COLUMN breaks TEXT;`,
 ];
 
 export function openDb(path: string): Database {
@@ -394,6 +395,7 @@ interface DayRow {
   n: number;
   date: string;
   track: string;
+  breaks: string | null;
   stats: string | null;
   end_point: string | null;
   source: string | null;
@@ -476,6 +478,7 @@ export class Store {
       n: r.n,
       date: r.date,
       track: JSON.parse(r.track),
+      ...(r.breaks ? { breaks: JSON.parse(r.breaks) as number[] } : {}),
       stats: json(r.stats),
       end: json(r.end_point),
       source: json(r.source),
@@ -484,8 +487,9 @@ export class Store {
   putDay(tripId: number, d: Day): void {
     this.db
       .query(
-        `INSERT INTO day (trip_id, n, date, track, stats, end_point, source) VALUES ($trip_id, $n, $date, $track, $stats, $end, $source)
-         ON CONFLICT (trip_id, n) DO UPDATE SET date = excluded.date, track = excluded.track, stats = excluded.stats,
+        `INSERT INTO day (trip_id, n, date, track, breaks, stats, end_point, source)
+         VALUES ($trip_id, $n, $date, $track, $breaks, $stats, $end, $source)
+         ON CONFLICT (trip_id, n) DO UPDATE SET date = excluded.date, track = excluded.track, breaks = excluded.breaks, stats = excluded.stats,
          end_point = excluded.end_point, source = excluded.source`,
       )
       .run({
@@ -493,6 +497,7 @@ export class Store {
         n: d.n,
         date: d.date,
         track: JSON.stringify(d.track),
+        breaks: d.breaks?.length ? JSON.stringify(d.breaks) : null,
         stats: d.stats == null ? null : JSON.stringify(d.stats),
         end: d.end == null ? null : JSON.stringify(d.end),
         source: d.source == null ? null : JSON.stringify(d.source),

@@ -266,6 +266,13 @@ export interface Day {
   date: string;
   /** In time order. Empty for a rest day. */
   track: TrackPoint[];
+  /**
+   * Indices into `track` where a new recording starts (ridden, then a train, then ridden again): the
+   * stretch from `track[i - 1]` to `track[i]` was not travelled under its own power. The map draws it
+   * as a thin dashed line; anchors never snap to it and it adds nothing to the kilometres along the
+   * day. Strictly increasing, each between 1 and `track.length - 1`. Absent or empty: one recording.
+   */
+  breaks?: number[];
   stats: DayStats | null;
   end: DayEnd | null;
   /** Where the day came from, e.g. `{garmin_activity_id}`. */
@@ -294,7 +301,8 @@ export type NoteKind = "note" | "day";
 
 /**
  * Where a note sits in the timeline.
- * - `track`: the time of the nearest point on the tracks (interpolated within a segment). Where
+ * - `track`: the time of the nearest point on the tracks (interpolated within a segment; the gaps
+ *   between a day's recordings, `Day.breaks`, are no segments). Where
  *   the tracks pass the spot more than once, the earliest pass wins, unless the note's earliest
  *   media `taken_at` picks the pass nearest in time to it.
  * - `at`: the note's manual `at`; always for a note without a place.

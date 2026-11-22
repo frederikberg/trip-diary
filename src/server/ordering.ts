@@ -14,8 +14,10 @@ interface Pt {
   lat: number;
   lon: number;
   t: number;
-  /** Kilometres from the day's start, scaled to the recorded distance. */
+  /** Kilometres from the day's start, scaled to the recorded distance; recording gaps add none. */
   km: number;
+  /** The stretch from the point before to this one is a gap between recordings: no anchor snaps to it. */
+  gap: boolean;
 }
 
 export interface PreparedDay {
@@ -56,10 +58,12 @@ export function prepareTrip(days: Day[], tz: string): PreparedTrip {
     .sort((a, b) => a.n - b.n)
     .map((d): PreparedDay => {
       let km = 0;
-      const pts = d.track.map((p, i) => {
+      const breaks = new Set(d.breaks);
+      const pts = d.track.map((p, i): Pt => {
         const prev = d.track[i - 1];
-        if (prev) km += haversineM(prev[0], prev[1], p[0], p[1]) / 1000;
-        return { lat: p[0], lon: p[1], t: Date.parse(p[3]), km };
+        const gap = breaks.has(i);
+        if (prev && !gap) km += haversineM(prev[0], prev[1], p[0], p[1]) / 1000;
+        return { lat: p[0], lon: p[1], t: Date.parse(p[3]), km, gap };
       });
       const recorded = d.stats?.km;
       if (recorded && km > 0) for (const p of pts) p.km *= recorded / km;
@@ -95,6 +99,11 @@ function project(lat: number, lon: number, trip: PreparedTrip): Hit[] {
     for (let i = 0; i < n; i++) {
       const a = pts[i] as Pt;
       const b = (pts[i + 1] ?? a) as Pt;
+      if (b.gap) {
+        dist.push(Number.POSITIVE_INFINITY);
+        frac.push(0);
+        continue;
+      }
       const ax = (a.lon - lon) * kx;
       const ay = (a.lat - lat) * ky;
       const dx = (b.lon - a.lon) * kx;
@@ -116,7 +125,7 @@ function project(lat: number, lon: number, trip: PreparedTrip): Hit[] {
     const n = pts.length === 1 ? 1 : pts.length - 1;
     for (let i = 0; i < n; i++, k++) {
       const dd = dist[k] as number;
-      if (dd > best + PASS_TOLERANCE_M) continue;
+      if (dd === Number.POSITIVE_INFINITY || dd > best + PASS_TOLERANCE_M) continue;
       const a = pts[i] as Pt;
       const b = (pts[i + 1] ?? a) as Pt;
       const f = frac[k] as number;

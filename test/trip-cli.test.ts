@@ -452,6 +452,55 @@ describe("days import-gpx", () => {
     expect(second?.body.date).toBe("2026-10-17");
   });
 
+  test("several recordings of one date make one day with breaks; a long pause with a jump splits a recording", async () => {
+    reset();
+    const a = join(dir, "ride1.gpx");
+    const b = join(dir, "ride2.gpx");
+    const c = join(dir, "next.gpx");
+    // Morning ride, then a second file after the train (20 km away), then the next day.
+    writeFileSync(
+      a,
+      GPX([
+        ["50.0", "7.0", "100", "2026-10-15T06:00:00Z"],
+        ["50.001", "7.0", "110", "2026-10-15T06:10:00Z"],
+        ["50.002", "7.0", "120", "2026-10-15T06:20:00Z"],
+      ]),
+    );
+    // One recording with a 1 h pause and a jump of about 20 km inside it.
+    writeFileSync(
+      b,
+      GPX([
+        ["50.2", "7.0", "100", "2026-10-15T08:00:00Z"],
+        ["50.201", "7.0", "110", "2026-10-15T08:10:00Z"],
+        ["50.4", "7.0", "100", "2026-10-15T09:20:00Z"],
+        ["50.401", "7.0", "110", "2026-10-15T09:30:00Z"],
+      ]),
+    );
+    writeFileSync(
+      c,
+      GPX([
+        ["50.0", "7.0", "90", "2026-10-16T08:00:00Z"],
+        ["50.002", "7.0", "95", "2026-10-16T08:10:00Z"],
+      ]),
+    );
+    const r = await trp("days", "import-gpx", "scratch", c, b, a);
+    expect(r.code).toBe(0);
+    const day1 = seen.find((x) => x.method === "PUT" && x.path.endsWith("/days/1"));
+    const day2 = seen.find((x) => x.method === "PUT" && x.path.endsWith("/days/2"));
+    expect(day1?.body.breaks).toHaveLength(2);
+    // Each break is a jump: the point before it is far from the point at it.
+    const track = day1?.body.track as number[][];
+    for (const i of (day1?.body.breaks ?? []) as number[]) {
+      const lat = (k: number) => (track[k] as number[]).at(0) as number;
+      expect(Math.abs(lat(i) - lat(i - 1))).toBeGreaterThan(0.1);
+    }
+    // Only the ridden stretches count: three rides of a few hundred metres each, not the 50 km between.
+    expect(day1?.body.stats.km).toBeLessThan(1);
+    expect(day1?.body.source).toEqual({ file: "ride1.gpx, ride2.gpx" });
+    expect(day2?.body.breaks).toBeUndefined();
+    expect(r.out).toContain("3 recordings");
+  });
+
   test("a point without a time is refused before anything is sent", async () => {
     reset();
     const f = join(dir, "notime.gpx");

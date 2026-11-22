@@ -34,8 +34,8 @@ import type {
   TripSummary,
   Waypoint,
 } from "../src/shared/api";
-import { isoInZone, zonedInstant } from "../src/shared/time";
-import { dayFromGpx, parseGpx } from "./gpx";
+import { isoInZone, localDate, zonedInstant } from "../src/shared/time";
+import { dayFromGpx, type GpxPoint, parseGpx } from "./gpx";
 
 const USAGE = `usage: trip [--json] [--url URL] [--token-file FILE] <command>
 
@@ -49,7 +49,7 @@ The server comes from --url or TRIP_URL, the admin token from --token-file or TR
   share <trip> --label L                          new view share
   share <trip> --revoke <id>
 
-  days import-gpx <trip> <file.gpx>… [--first-day N]   one recording per day, in date order
+  days import-gpx <trip> <file.gpx>… [--first-day N]   one day per date, in date order; several recordings of a date make one day with gaps
   days import <trip> <days.json> [--no-waypoints]      days (and waypoints) as JSON: the shape of the trip.json of an export
   days rm <trip> <n>
 
@@ -356,6 +356,7 @@ const daysImport: Handler = async (a) => {
     const put: DayPut = {
       date: d.date,
       track: d.track ?? [],
+      ...(d.breaks?.length ? { breaks: d.breaks } : {}),
       stats: d.stats ?? null,
       end: d.end ? { ...d.end, camp_type: d.end.camp_type ?? null, name: d.end.name ?? null } : null,
       source: d.source ?? null,
@@ -388,15 +389,31 @@ const daysImportGpx: Handler = async (a) => {
   const first = num("first-day", o["first-day"]) ?? 1;
   if (!Number.isInteger(first) || first < 1) throw new CliFail("--first-day must be a positive integer");
   const tz = (await view(slug)).trip.timezone;
-  const days = files
-    .map((file) => ({ file, points: parseGpx(readFileSync(file, "utf8"), file) }))
-    .sort((x, y) => (x.points[0]?.ms ?? 0) - (y.points[0]?.ms ?? 0));
+  // Files whose recordings start on the same local date are one day, in start order.
+  const parsed = files
+    .map((file) => {
+      const recordings = parseGpx(readFileSync(file, "utf8"), file);
+      return { file: basename(file), recordings, start: Math.min(...recordings.map((r) => (r[0] as GpxPoint).ms)) };
+    })
+    .sort((x, y) => x.start - y.start);
+  const byDate = new Map<string, { files: string[]; recordings: GpxPoint[][]; start: number }>();
+  for (const f of parsed) {
+    const date = localDate(f.start, tz);
+    const day = byDate.get(date) ?? { files: [], recordings: [], start: f.start };
+    day.files.push(f.file);
+    day.recordings.push(...f.recordings);
+    byDate.set(date, day);
+  }
+  const days = [...byDate.values()].sort((x, y) => x.start - y.start);
   const out: string[] = [];
-  for (const [i, { file, points }] of days.entries()) {
+  for (const [i, day] of days.entries()) {
     const n = first + i;
-    const put = dayFromGpx(points, tz, basename(file));
+    const put = dayFromGpx(day.recordings, tz, day.files.join(", "));
     await api("PUT", `${tripPath(slug)}/days/${n}`, put);
-    out.push(`day ${n} ${put.date}: ${put.track.length} points, ${put.stats?.km} km (${basename(file)})`);
+    const parts = (put.breaks?.length ?? 0) + 1;
+    out.push(
+      `day ${n} ${put.date}: ${put.track.length} points, ${put.stats?.km} km${parts > 1 ? `, ${parts} recordings` : ""} (${day.files.join(", ")})`,
+    );
   }
   console.log(out.join("\n"));
 };

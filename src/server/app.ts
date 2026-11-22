@@ -605,7 +605,7 @@ export function createApp(deps: Deps): (req: Request) => Promise<Response> {
   }
 
   function validDay(n: number, raw: Record<string, unknown>): Day {
-    only(raw, ["date", "track", "stats", "end", "source"]);
+    only(raw, ["date", "track", "breaks", "stats", "end", "source"]);
     const d = raw as unknown as DayPut;
     if (!Array.isArray(d.track)) throw new HttpError(400, "track must be an array");
     let prev = Number.NEGATIVE_INFINITY;
@@ -618,6 +618,14 @@ export function createApp(deps: Deps): (req: Request) => Promise<Response> {
       const ele = p[2] == null ? null : Number(p[2]);
       if (ele != null && !Number.isFinite(ele)) throw new HttpError(400, `track[${i}] elevation is invalid`);
       return [coord(p[0], "lat"), coord(p[1], "lon"), ele, p[3] as string];
+    });
+    const breaks = d.breaks ?? [];
+    if (!Array.isArray(breaks)) throw new HttpError(400, "breaks must be an array");
+    breaks.forEach((b, i) => {
+      if (!Number.isInteger(b) || b < 1 || b > track.length - 1)
+        throw new HttpError(400, `breaks[${i}] must be an index of a track point after the first`);
+      if (i > 0 && b <= (breaks[i - 1] as number))
+        throw new HttpError(400, `breaks[${i}] must be larger than the one before`);
     });
     let end: Day["end"] = null;
     if (d.end != null) {
@@ -637,6 +645,7 @@ export function createApp(deps: Deps): (req: Request) => Promise<Response> {
       n,
       date: date(d.date, "date"),
       track,
+      ...(breaks.length ? { breaks } : {}),
       stats: d.stats == null ? null : (record(d.stats, "stats") as Day["stats"]),
       end,
       source: d.source == null ? null : record(d.source, "source"),
