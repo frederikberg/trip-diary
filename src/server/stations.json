@@ -1,0 +1,562 @@
+[
+  {
+    "name": "Aachen Hbf",
+    "eva": "8000001",
+    "lat": 50.76764,
+    "lon": 6.09119,
+    "candidate": true
+  },
+  {
+    "name": "Augsburg Hbf",
+    "eva": "8000013",
+    "lat": 48.365246,
+    "lon": 10.885595,
+    "candidate": true
+  },
+  {
+    "name": "Bamberg",
+    "eva": "8000025",
+    "lat": 49.90079,
+    "lon": 10.899493,
+    "candidate": true
+  },
+  {
+    "name": "Berlin Hbf",
+    "eva": "8011160",
+    "lat": 52.524925,
+    "lon": 13.369629,
+    "candidate": true
+  },
+  {
+    "name": "Bielefeld Hbf",
+    "eva": "8000036",
+    "lat": 52.029423,
+    "lon": 8.532777,
+    "candidate": true
+  },
+  {
+    "name": "Bochum Hbf",
+    "eva": "8000041",
+    "lat": 51.47849,
+    "lon": 7.223264,
+    "candidate": true
+  },
+  {
+    "name": "Bonn Hbf",
+    "eva": "8000044",
+    "lat": 50.731964,
+    "lon": 7.096678,
+    "candidate": true
+  },
+  {
+    "name": "Braunschweig Hbf",
+    "eva": "8000049",
+    "lat": 52.25213,
+    "lon": 10.540436,
+    "candidate": true
+  },
+  {
+    "name": "Bremen Hbf",
+    "eva": "8000050",
+    "lat": 53.08328,
+    "lon": 8.813681,
+    "candidate": true
+  },
+  {
+    "name": "Chemnitz Hbf",
+    "eva": "8010184",
+    "lat": 50.838333,
+    "lon": 12.930713,
+    "candidate": true
+  },
+  {
+    "name": "Cottbus Hbf",
+    "eva": "8010073",
+    "lat": 51.751133,
+    "lon": 14.323673,
+    "candidate": true
+  },
+  {
+    "name": "Darmstadt Hbf",
+    "eva": "8000068",
+    "lat": 49.872547,
+    "lon": 8.629707,
+    "candidate": true
+  },
+  {
+    "name": "Dortmund Hbf",
+    "eva": "8000080",
+    "lat": 51.51787,
+    "lon": 7.459276,
+    "candidate": true
+  },
+  {
+    "name": "Dresden Hbf",
+    "eva": "8010085",
+    "lat": 51.040222,
+    "lon": 13.731409,
+    "candidate": true
+  },
+  {
+    "name": "Duisburg Hbf",
+    "eva": "8000086",
+    "lat": 51.429615,
+    "lon": 6.77606,
+    "candidate": true
+  },
+  {
+    "name": "Düsseldorf Hbf",
+    "eva": "8000085",
+    "lat": 51.219707,
+    "lon": 6.794011,
+    "candidate": true
+  },
+  {
+    "name": "Eisenach Hbf",
+    "eva": "8010097",
+    "lat": 50.97693,
+    "lon": 10.33212,
+    "candidate": true
+  },
+  {
+    "name": "Erfurt Hbf",
+    "eva": "8010101",
+    "lat": 50.97255,
+    "lon": 11.038502,
+    "candidate": true
+  },
+  {
+    "name": "Essen Hbf",
+    "eva": "8000098",
+    "lat": 51.451378,
+    "lon": 7.01386,
+    "candidate": true
+  },
+  {
+    "name": "Flensburg",
+    "eva": "8000103",
+    "lat": 54.77408,
+    "lon": 9.436175,
+    "candidate": true
+  },
+  {
+    "name": "Frankfurt(Main)Hbf",
+    "eva": "8000105",
+    "lat": 50.106815,
+    "lon": 8.663003,
+    "candidate": true
+  },
+  {
+    "name": "Frankfurt(Oder)",
+    "eva": "8010113",
+    "lat": 52.33586,
+    "lon": 14.547073,
+    "candidate": true
+  },
+  {
+    "name": "Freiburg(Breisgau) Hbf",
+    "eva": "8000107",
+    "lat": 47.997974,
+    "lon": 7.841344,
+    "candidate": true
+  },
+  {
+    "name": "Fulda",
+    "eva": "8000115",
+    "lat": 50.554794,
+    "lon": 9.684178,
+    "candidate": true
+  },
+  {
+    "name": "Gießen",
+    "eva": "8000124",
+    "lat": 50.579372,
+    "lon": 8.662842,
+    "candidate": true
+  },
+  {
+    "name": "Göttingen",
+    "eva": "8000128",
+    "lat": 51.53676,
+    "lon": 9.926257,
+    "candidate": true
+  },
+  {
+    "name": "Greifswald",
+    "eva": "8010139",
+    "lat": 54.092922,
+    "lon": 13.37034,
+    "candidate": true
+  },
+  {
+    "name": "Hagen Hbf",
+    "eva": "8000142",
+    "lat": 51.36273,
+    "lon": 7.460391,
+    "candidate": true
+  },
+  {
+    "name": "Halle(Saale)Hbf",
+    "eva": "8010159",
+    "lat": 51.477077,
+    "lon": 11.98699,
+    "candidate": true
+  },
+  {
+    "name": "Hamburg Hbf",
+    "eva": "8002549",
+    "lat": 53.55353,
+    "lon": 10.00636,
+    "candidate": true
+  },
+  {
+    "name": "Hamm(Westf)Hbf",
+    "eva": "8000149",
+    "lat": 51.67813,
+    "lon": 7.80777,
+    "candidate": true
+  },
+  {
+    "name": "Hannover Hbf",
+    "eva": "8000152",
+    "lat": 52.37708,
+    "lon": 9.741763,
+    "candidate": true
+  },
+  {
+    "name": "Heidelberg Hbf",
+    "eva": "8000156",
+    "lat": 49.403584,
+    "lon": 8.67548,
+    "candidate": true
+  },
+  {
+    "name": "Heilbronn Hbf",
+    "eva": "8000157",
+    "lat": 49.143246,
+    "lon": 9.207579,
+    "candidate": true
+  },
+  {
+    "name": "Hildesheim Hbf",
+    "eva": "8000169",
+    "lat": 52.160168,
+    "lon": 9.952281,
+    "candidate": true
+  },
+  {
+    "name": "Ingolstadt Hbf",
+    "eva": "8000183",
+    "lat": 48.744537,
+    "lon": 11.437335,
+    "candidate": true
+  },
+  {
+    "name": "Jena Paradies",
+    "eva": "8011956",
+    "lat": 50.924915,
+    "lon": 11.587599,
+    "candidate": true
+  },
+  {
+    "name": "Kaiserslautern Hbf",
+    "eva": "8000189",
+    "lat": 49.436043,
+    "lon": 7.768765,
+    "candidate": true
+  },
+  {
+    "name": "Karlsruhe Hbf",
+    "eva": "8000191",
+    "lat": 48.99353,
+    "lon": 8.401939,
+    "candidate": true
+  },
+  {
+    "name": "Kassel-Wilhelmshöhe",
+    "eva": "8003200",
+    "lat": 51.313,
+    "lon": 9.446845,
+    "candidate": true
+  },
+  {
+    "name": "Kempten(Allgäu)Hbf",
+    "eva": "8000197",
+    "lat": 47.71181,
+    "lon": 10.317675,
+    "candidate": true
+  },
+  {
+    "name": "Kiel Hbf",
+    "eva": "8000199",
+    "lat": 54.3149,
+    "lon": 10.131778,
+    "candidate": true
+  },
+  {
+    "name": "Koblenz Hbf",
+    "eva": "8000206",
+    "lat": 50.350777,
+    "lon": 7.588343,
+    "candidate": true
+  },
+  {
+    "name": "Köln Hbf",
+    "eva": "8000207",
+    "lat": 50.94282,
+    "lon": 6.959197,
+    "candidate": true
+  },
+  {
+    "name": "Konstanz",
+    "eva": "8003400",
+    "lat": 47.658756,
+    "lon": 9.177411,
+    "candidate": true
+  },
+  {
+    "name": "Leipzig Hbf",
+    "eva": "8010205",
+    "lat": 51.34508,
+    "lon": 12.381167,
+    "candidate": true
+  },
+  {
+    "name": "Lübeck Hbf",
+    "eva": "8000237",
+    "lat": 53.86767,
+    "lon": 10.669737,
+    "candidate": true
+  },
+  {
+    "name": "Lüneburg",
+    "eva": "8000238",
+    "lat": 53.24974,
+    "lon": 10.419873,
+    "candidate": true
+  },
+  {
+    "name": "Magdeburg Hbf",
+    "eva": "8010224",
+    "lat": 52.130493,
+    "lon": 11.6269,
+    "candidate": true
+  },
+  {
+    "name": "Mainz Hbf",
+    "eva": "8000240",
+    "lat": 50.00124,
+    "lon": 8.258453,
+    "candidate": true
+  },
+  {
+    "name": "Mannheim Hbf",
+    "eva": "8000244",
+    "lat": 49.47918,
+    "lon": 8.469268,
+    "candidate": true
+  },
+  {
+    "name": "Mönchengladbach Hbf",
+    "eva": "8000253",
+    "lat": 51.196507,
+    "lon": 6.446183,
+    "candidate": true
+  },
+  {
+    "name": "München Hbf",
+    "eva": "8000261",
+    "lat": 48.140366,
+    "lon": 11.558744,
+    "candidate": true
+  },
+  {
+    "name": "Münster(Westf)Hbf",
+    "eva": "8000263",
+    "lat": 51.956528,
+    "lon": 7.63586,
+    "candidate": true
+  },
+  {
+    "name": "Nürnberg Hbf",
+    "eva": "8000284",
+    "lat": 49.445435,
+    "lon": 11.08227,
+    "candidate": true
+  },
+  {
+    "name": "Offenburg",
+    "eva": "8000290",
+    "lat": 48.476505,
+    "lon": 7.94677,
+    "candidate": true
+  },
+  {
+    "name": "Oldenburg(Oldb)Hbf",
+    "eva": "8000291",
+    "lat": 53.14411,
+    "lon": 8.222685,
+    "candidate": true
+  },
+  {
+    "name": "Osnabrück Hbf",
+    "eva": "8000294",
+    "lat": 52.272533,
+    "lon": 8.061256,
+    "candidate": true
+  },
+  {
+    "name": "Paderborn Hbf",
+    "eva": "8000297",
+    "lat": 51.712948,
+    "lon": 8.740949,
+    "candidate": true
+  },
+  {
+    "name": "Passau Hbf",
+    "eva": "8000298",
+    "lat": 48.573776,
+    "lon": 13.450775,
+    "candidate": true
+  },
+  {
+    "name": "Potsdam Hbf",
+    "eva": "8012666",
+    "lat": 52.391552,
+    "lon": 13.066711,
+    "candidate": true
+  },
+  {
+    "name": "Regensburg Hbf",
+    "eva": "8000309",
+    "lat": 49.01175,
+    "lon": 12.099669,
+    "candidate": true
+  },
+  {
+    "name": "Rostock Hbf",
+    "eva": "8010304",
+    "lat": 54.078197,
+    "lon": 12.131257,
+    "candidate": true
+  },
+  {
+    "name": "Saarbrücken Hbf",
+    "eva": "8000323",
+    "lat": 49.24137,
+    "lon": 6.991055,
+    "candidate": true
+  },
+  {
+    "name": "Schwerin Hbf",
+    "eva": "8010324",
+    "lat": 53.634724,
+    "lon": 11.407527,
+    "candidate": true
+  },
+  {
+    "name": "Siegen Hbf",
+    "eva": "8000046",
+    "lat": 50.875603,
+    "lon": 8.015897,
+    "candidate": true
+  },
+  {
+    "name": "Stralsund Hbf",
+    "eva": "8010338",
+    "lat": 54.308437,
+    "lon": 13.078028,
+    "candidate": true
+  },
+  {
+    "name": "Stuttgart Hbf",
+    "eva": "8000096",
+    "lat": 48.784782,
+    "lon": 9.18276,
+    "candidate": true
+  },
+  {
+    "name": "Ulm Hbf",
+    "eva": "8000170",
+    "lat": 48.399586,
+    "lon": 9.982422,
+    "candidate": true
+  },
+  {
+    "name": "Wiesbaden Hbf",
+    "eva": "8000250",
+    "lat": 50.070564,
+    "lon": 8.243639,
+    "candidate": true
+  },
+  {
+    "name": "Wolfsburg Hbf",
+    "eva": "8006552",
+    "lat": 52.429497,
+    "lon": 10.787757,
+    "candidate": true
+  },
+  {
+    "name": "Würzburg Hbf",
+    "eva": "8000260",
+    "lat": 49.802162,
+    "lon": 9.93593,
+    "candidate": true
+  },
+  {
+    "name": "Wuppertal Hbf",
+    "eva": "8000266",
+    "lat": 51.254444,
+    "lon": 7.150155,
+    "candidate": true
+  },
+  {
+    "name": "Berlin Gesundbrunnen",
+    "eva": "8011102",
+    "lat": 52.548656,
+    "lon": 13.39106,
+    "candidate": false
+  },
+  {
+    "name": "Berlin Ostbahnhof",
+    "eva": "8010255",
+    "lat": 52.510426,
+    "lon": 13.4349,
+    "candidate": false
+  },
+  {
+    "name": "Berlin Südkreuz",
+    "eva": "8011113",
+    "lat": 52.47623,
+    "lon": 13.365863,
+    "candidate": false
+  },
+  {
+    "name": "Hamburg-Altona",
+    "eva": "8002553",
+    "lat": 53.55257,
+    "lon": 9.93486,
+    "candidate": false
+  },
+  {
+    "name": "Kassel Hbf",
+    "eva": "8000193",
+    "lat": 51.31832,
+    "lon": 9.489903,
+    "candidate": false
+  },
+  {
+    "name": "Köln Messe/Deutz",
+    "eva": "8003368",
+    "lat": 50.94099,
+    "lon": 6.974578,
+    "candidate": false
+  },
+  {
+    "name": "München Ost",
+    "eva": "8000262",
+    "lat": 48.1273,
+    "lon": 11.604993,
+    "candidate": false
+  }
+]
