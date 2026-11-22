@@ -54,7 +54,7 @@ export function openViewer(o: ViewerOptions): void {
   const data: SlideData[] = slides.map((s) =>
     s.m.type === "video"
       ? {
-          html: `<div class="pswp__vid"><video src="${esc(s.m.video)}" poster="${esc(s.m.preview)}" controls playsinline preload="metadata"></video></div>`,
+          html: `<div class="pswp__vid"><video src="${esc(s.m.video)}" poster="${esc(s.m.preview)}" controls playsinline preload="none"></video></div>`,
         }
       : {
           src: s.m.preview,
@@ -149,14 +149,44 @@ export function openViewer(o: ViewerOptions): void {
       });
     }
   });
-  pswp.on("change", () => {
-    for (const v of document.querySelectorAll<HTMLVideoElement>(".pswp video")) v.pause();
+  // Every video starts when it comes into view, with sound: this view is opened or moved by a tap or
+  // a key. A browser that refuses sound without a fresh tap gets it muted and says so.
+  const videoOf = (c: { element?: HTMLElement }) => c.element?.querySelector("video") ?? null;
+  const startWithSound = (v: HTMLVideoElement) => {
+    v.muted = false;
+    v.play().catch((e: unknown) => {
+      if ((e as Error).name !== "NotAllowedError") return;
+      v.muted = true;
+      v.play().catch(() => {});
+      toast("Ton ist aus: im Player den Lautsprecher antippen.", 4000);
+    });
+  };
+  pswp.on("contentActivate", ({ content }) => {
+    const v = videoOf(content);
+    if (v) startWithSound(v);
   });
+  pswp.on("contentDeactivate", ({ content }) => videoOf(content)?.pause());
+  // Space plays and pauses; the video's own controls and a focused button keep their native space.
+  pswp.on("keydown", ({ originalEvent: e }) => {
+    const t = e.target as HTMLElement;
+    if (e.key !== " " || t.closest("video")) return;
+    const v = videoOf(pswp.currSlide?.content ?? {});
+    if (!v) return;
+    e.preventDefault();
+    if (v.paused) v.play().catch(() => {});
+    else v.pause();
+  });
+  const noSpaceClick = (e: KeyboardEvent) => {
+    if (e.key === " " && !(e.target as HTMLElement).closest("video") && videoOf(pswp.currSlide?.content ?? {}))
+      e.preventDefault();
+  };
+  document.addEventListener("keyup", noSpaceClick, true);
   pswp.on("close", () => {
     for (const v of document.querySelectorAll<HTMLVideoElement>(".pswp video")) v.pause();
     o.onClose(current().note.key);
   });
   pswp.on("destroy", () => {
+    document.removeEventListener("keyup", noSpaceClick, true);
     open = null;
   });
   open = pswp;

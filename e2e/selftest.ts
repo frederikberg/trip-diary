@@ -91,6 +91,39 @@ async function open(p: Page, url: string) {
   await p.waitForLoadState("networkidle", { timeout: 8000 }).catch(() => {});
 }
 
+/**
+ * The headless shell cannot decode video, so playback is replaced by a model of it: play() and
+ * pause() flip `paused`, fire the events a browser would, and are logged as `play:<media id>:muted=<bool>`.
+ * `__refuseSound` makes unmuted play() fail as a browser without a fresh tap does; `__end(el)` ends a video.
+ */
+const MEDIA_STUB = `(() => {
+  const state = new WeakMap();
+  const log = [];
+  const id = (el) => (el.getAttribute("src") || "").match(/\\/m\\/(\\d+)\\//)?.[1];
+  Object.defineProperty(HTMLMediaElement.prototype, "paused", { get() { return state.get(this) ?? true; } });
+  HTMLMediaElement.prototype.play = function () {
+    if (window.__refuseSound && !this.muted) return Promise.reject(new DOMException("no gesture", "NotAllowedError"));
+    state.set(this, false);
+    log.push("play:" + id(this) + ":muted=" + this.muted);
+    queueMicrotask(() => { this.dispatchEvent(new Event("play")); this.dispatchEvent(new Event("playing")); });
+    return Promise.resolve();
+  };
+  HTMLMediaElement.prototype.pause = function () {
+    if (this.paused) return;
+    state.set(this, true);
+    log.push("pause:" + id(this));
+    queueMicrotask(() => this.dispatchEvent(new Event("pause")));
+  };
+  window.__end = (el) => { state.set(el, true); el.dispatchEvent(new Event("pause")); el.dispatchEvent(new Event("ended")); };
+  window.__vlog = log;
+})();`;
+const vlog = (p: Page) => p.evaluate(() => (window as unknown as { __vlog: string[] }).__vlog.slice());
+const stored = (p: Page) => p.evaluate(() => JSON.parse(localStorage.getItem("trip-video") ?? "null"));
+const sw = (name: string) => `.vsw [data-vsw="${name}"]`;
+const pressed = (p: Page, name: string) => p.getAttribute(sw(name), "aria-pressed");
+const tilePlaying = (p: Page, i: number) =>
+  p.$eval(`.media .m[data-i="${i}"]`, (e) => e.classList.contains("playing")).catch(() => false);
+
 async function phoneReadOnly(browser: Browser, url: string) {
   const ctx = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -98,6 +131,7 @@ async function phoneReadOnly(browser: Browser, url: string) {
     hasTouch: true,
     deviceScaleFactor: 2,
   });
+  await ctx.addInitScript(MEDIA_STUB);
   const p = await ctx.newPage();
   const errors: string[] = [];
   await watch(p, errors);
@@ -288,28 +322,176 @@ async function phoneReadOnly(browser: Browser, url: string) {
     s,
   );
 
+  // ---- videos play inline, with switches kept in the browser
   await p.tap(chip("5"));
   await settle(p);
   check(
     "a video shows play and duration in the sheet",
     (await p.$$(".media .m .play")).length === 1 && (await p.textContent(".media .dur")) === "0:14",
   );
-  await p.tap('.media .m[data-i="0"]');
-  await p.waitForSelector(".pswp--open video", { timeout: 5000 });
-  const video = await p.$eval(".pswp--open video", (v) => ({
-    src: v.getAttribute("src"),
-    poster: v.getAttribute("poster"),
-    inline: v.hasAttribute("playsinline"),
-  }));
+  let log = await vlog(p);
   check(
-    "the video slide plays through the proxy with a poster",
-    !!video.src?.includes("/video?v=") && !!video.poster?.includes("/preview?v=") && video.inline,
-    video,
+    "opening a note with autoplay on (the default) starts its video inline and muted, not full screen",
+    log.length === 1 && log[0]?.endsWith(":muted=true") === true && (await p.$(".pswp--open")) === null,
+    log,
   );
-  await p.waitForTimeout(400);
-  await shot(p, "phone-09-video");
+  check(
+    "a single video loops, and both switches show their defaults without anything stored",
+    (await p.$eval(".media .m.vid video", (v) => (v as HTMLVideoElement).loop)) &&
+      (await pressed(p, "autoplay")) === "true" &&
+      (await pressed(p, "mute")) === "true" &&
+      (await stored(p)) === null,
+  );
+  await shot(p, "phone-09-video-inline");
+  await p.tap(".media .m.vid .pp");
+  check(
+    "tapping the playing video pauses it inline",
+    !(await tilePlaying(p, 0)) && (await vlog(p)).at(-1)?.startsWith("pause:") === true,
+  );
+  await p.tap(".media .m.vid .pp");
+  check("tapping it again plays it inline", (await tilePlaying(p, 0)) && (await p.$(".pswp--open")) === null);
+
+  await p.tap(sw("mute"));
+  check(
+    "the mute switch unmutes the playing video and is stored",
+    (await pressed(p, "mute")) === "false" &&
+      !(await p.$eval(".media .m.vid video", (v) => (v as HTMLVideoElement).muted)) &&
+      (await stored(p))?.mute === false,
+    await stored(p),
+  );
+  await p.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await p.keyboard.press("Space");
+  check("the space bar pauses the note's video", !(await tilePlaying(p, 0)));
+  await p.keyboard.press("Space");
+  check("and plays it again", await tilePlaying(p, 0));
+
+  // Note 10: video, photo, video.
+  await p.tap(chip("10"));
+  await settle(p);
+  const ids10 = await p.$$eval(".media .m", (els) => els.map((e) => e.classList.contains("vid")));
+  log = await vlog(p);
+  check(
+    "the switches carry over to the next note: its video starts unmuted, and the first of two plays first",
+    ids10.join() === "true,false,true" &&
+      (await tilePlaying(p, 0)) &&
+      !(await tilePlaying(p, 2)) &&
+      log.at(-1)?.endsWith(":muted=false") === true &&
+      (await pressed(p, "mute")) === "false",
+    { ids10, log },
+  );
+  check(
+    "videos of a note with several do not loop",
+    !(await p.$eval('.media .m[data-i="0"] video', (v) => (v as HTMLVideoElement).loop)),
+  );
+  await p.evaluate(() => {
+    const w = window as unknown as { __end(el: Element): void };
+    w.__end(document.querySelector('.media .m[data-i="0"] video') as Element);
+  });
+  await settle(p, 900);
+  const row = await p.$eval(".media", (e) => ({ left: e.scrollLeft, max: e.scrollWidth - e.clientWidth }));
+  check(
+    "when the first video ends the second one plays, the photo between skipped, and the row scrolls to it",
+    (await tilePlaying(p, 2)) && !(await tilePlaying(p, 0)) && row.left > 100,
+    row,
+  );
+  await shot(p, "phone-09b-video-sequence");
+  await p.evaluate(() => {
+    const w = window as unknown as { __end(el: Element): void };
+    w.__end(document.querySelector('.media .m[data-i="2"] video') as Element);
+  });
+  await settle(p, 900);
+  check("after the last video the first starts again", (await tilePlaying(p, 0)) && !(await tilePlaying(p, 2)));
+
+  // The full-screen button: sound whatever the mute switch says, space, starting on arrival.
+  await p.tap(sw("mute"));
+  check("mute switched on again", (await pressed(p, "mute")) === "true");
+  await p.tap('.media .m[data-i="0"] .fs');
+  await p.waitForSelector(".pswp--open", { timeout: 5000 });
+  await settle(p, 400);
+  log = await vlog(p);
+  const viewerVideo = (i: number) =>
+    p.evaluate((n) => document.querySelectorAll(".pswp video")[n]?.getAttribute("src"), i);
+  check(
+    "the full-screen button opens the viewer on that video, which starts with sound despite the mute switch",
+    log.at(-1)?.endsWith(":muted=false") === true && !(await tilePlaying(p, 0)) && !!(await viewerVideo(0)),
+    log.slice(-3),
+  );
+  await shot(p, "phone-09c-video-viewer");
+  await p.keyboard.press("Space");
+  check(
+    "space pauses it in the viewer",
+    (await vlog(p)).at(-1)?.startsWith("pause:") === true,
+    (await vlog(p)).slice(-2),
+  );
+  await p.keyboard.press("Space");
+  check("and plays it again", (await vlog(p)).at(-1)?.endsWith(":muted=false") === true);
+  const n0 = (await vlog(p)).length;
+  await p.keyboard.press("ArrowRight");
+  await settle(p, 500);
+  await p.keyboard.press("ArrowRight");
+  await settle(p, 500);
+  log = await vlog(p);
+  check(
+    "moving to the next video starts it with sound and pauses the one left",
+    log.slice(n0).some((l) => l.startsWith("pause:")) && log.at(-1)?.endsWith(":muted=false") === true,
+    log.slice(n0),
+  );
   await p.keyboard.press("Escape");
   await settle(p);
+
+  // A browser that refuses sound without a tap: muted instead, and the switch says so.
+  await p.evaluate(() => {
+    (window as unknown as { __refuseSound: boolean }).__refuseSound = true;
+  });
+  await p.tap(sw("mute"));
+  await p.tap(chip("5"));
+  await settle(p);
+  log = await vlog(p);
+  check(
+    "a refused unmuted start falls back to muted, shows the mute switch on, and keeps the stored choice",
+    log.at(-1)?.endsWith(":muted=true") === true &&
+      (await pressed(p, "mute")) === "true" &&
+      (await stored(p))?.mute === false,
+    { log: log.slice(-2), stored: await stored(p) },
+  );
+  await p.evaluate(() => {
+    (window as unknown as { __refuseSound: boolean }).__refuseSound = false;
+  });
+
+  // Autoplay off: remembered, and the next note stays quiet until play is tapped.
+  await p.tap(sw("autoplay"));
+  await p.tap(chip("10"));
+  await settle(p);
+  const n1 = (await vlog(p)).length;
+  check(
+    "with autoplay off a note's videos wait: stored, nothing plays",
+    (await pressed(p, "autoplay")) === "false" &&
+      (await stored(p))?.autoplay === false &&
+      !(await tilePlaying(p, 0)) &&
+      !(await tilePlaying(p, 2)),
+  );
+  await p.tap('.media .m[data-i="2"] .pp');
+  check("tapping play then plays that video inline", (await tilePlaying(p, 2)) && (await vlog(p)).length === n1 + 1);
+  await p.tap(chip("5"));
+  await settle(p);
+  check("autoplay stays off on the next note", !(await tilePlaying(p, 0)));
+  await p.tap(sw("autoplay"));
+  check("turning autoplay on starts the note's video", await tilePlaying(p, 0));
+
+  // A refreshed view of the same note leaves its video playing.
+  await stack.call("/api/admin/trips/sample/notes/5", {
+    method: "PATCH",
+    admin: true,
+    json: { text: "Neuer Text vom Aussichtspunkt." },
+  });
+  await p.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await p.waitForFunction(() => document.querySelector(".entry")?.textContent?.includes("Neuer Text"), null, {
+    timeout: 5000,
+  });
+  check("a refreshed view of the same note keeps its video playing", await tilePlaying(p, 0));
+  await p.tap(chip("3"));
+  await settle(p);
+  check("a note without videos has no switches", (await p.$(".vsw")) === null);
 
   // Back closes layers instead of leaving the page.
   await p.tap(chip("4"));
@@ -891,6 +1073,7 @@ async function homePage(browser: Browser, stack: Stack, tripPath: string) {
 
 async function desktop(browser: Browser, url: string) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await ctx.addInitScript(MEDIA_STUB);
   const p = await ctx.newPage();
   const errors: string[] = [];
   await watch(p, errors);
@@ -921,6 +1104,22 @@ async function desktop(browser: Browser, url: string) {
   await shot(p, "desktop-03-day-end");
   await p.click(chip("5"));
   await settle(p);
+  check(
+    "desktop: the note's video plays inline in the panel while the map still pans",
+    (await tilePlaying(p, 0)) && (await p.$(".pswp--open")) === null,
+  );
+  await shot(p, "desktop-03b-video-inline");
+  const before = (await state(p)).center;
+  await p.mouse.move(400, 500);
+  await p.mouse.down();
+  await p.mouse.move(300, 450, { steps: 6 });
+  await p.mouse.up();
+  const after = (await state(p)).center;
+  check(
+    "desktop: dragging the map moves it and the video keeps playing",
+    before.lat !== after.lat && (await tilePlaying(p, 0)),
+    { before, after },
+  );
   await p.click('.media .m[data-i="1"]');
   await p.waitForSelector(".pswp--open");
   await p.waitForTimeout(600);

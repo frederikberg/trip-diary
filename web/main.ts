@@ -177,6 +177,7 @@ function fitAll() {
 
 // ---- media viewer
 function showMedia(key: string, i: number) {
+  sheet.pausePlayback();
   let fromHistory = false;
   openViewer({
     notes: view.notes,
@@ -281,7 +282,9 @@ window.addEventListener("keydown", (e: KeyboardEvent) => {
     return;
   const t = e.target as HTMLElement;
   if (t.closest("input, textarea")) return;
-  if (e.key === "ArrowRight") step(1);
+  // The space bar plays and pauses the open note's video, unless a button holds the focus.
+  if (e.key === " " && selected && !t.closest("button, a, summary") && sheet.togglePlayback()) e.preventDefault();
+  else if (e.key === "ArrowRight") step(1);
   else if (e.key === "ArrowLeft" && selected) step(-1);
   else if (e.key === "Escape") close();
 });
