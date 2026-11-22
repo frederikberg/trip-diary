@@ -105,6 +105,8 @@ function meta(n: Note, day: Day | undefined, editable: boolean): string {
   }
   if (n.kind === "note" && a.km != null && a.rule === "track") parts.push(esc(`km ${km(a.km)}`));
   if (n.kind === "note" && n.lat == null) parts.push("ohne Ort");
+  // The count sits here rather than on the first tile, where it read as a button hiding more.
+  if (n.media.length > 1) parts.push(`<span class="mcount">${icon.camera}${n.media.length}</span>`);
   if (n.kind === "day" && day?.end?.camp_type) parts.push(esc(CAMP[day.end.camp_type]));
   let warn = "";
   if (editable && n.kind === "note" && a.off_track && a.dist_m != null)
@@ -121,14 +123,13 @@ function mediaRow(media: Media[]): string {
       const w = m.width ?? 4;
       const h = m.height ?? 3;
       const style = one ? `aspect-ratio:${w}/${h}` : `width:${Math.round((176 * w) / h)}px`;
-      const count = i === 0 && media.length > 1 ? `<span class="count">${icon.camera}${media.length}</span>` : "";
       const img = `<img src="${esc(m.preview)}" alt="${esc(m.caption ?? "")}" loading="lazy" decoding="async">`;
       if (m.type !== "video")
-        return `<button class="m" data-i="${i}" style="${style}" aria-label="Foto ${i + 1} von ${media.length}">${img}${count}</button>`;
+        return `<button class="m" data-i="${i}" style="${style}" aria-label="Foto ${i + 1} von ${media.length}">${img}</button>`;
       // A video plays in its tile; only the corner button opens the viewer.
       return `<div class="m vid" data-i="${i}" style="${style}">${img}<video src="${esc(m.video as string)}" muted playsinline preload="none"></video>
         <button class="pp" aria-label="Video ${i + 1} von ${media.length} abspielen oder anhalten"><span class="play">${icon.play}</span></button>
-        ${m.duration_ms ? `<span class="dur">${clock(m.duration_ms)}</span>` : ""}${count}
+        ${m.duration_ms ? `<span class="dur">${clock(m.duration_ms)}</span>` : ""}
         <button class="fs" aria-label="Video im Vollbild">${icon.fit}</button></div>`;
     })
     .join("")}</div>`;

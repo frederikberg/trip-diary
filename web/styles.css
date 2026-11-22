@@ -1275,18 +1275,11 @@ body.sheet-open #edit-badge {
   background: #9ca3af;
   border-style: dashed;
 }
-.media .count {
-  position: absolute;
-  top: 6px;
-  right: 6px;
+.meta .mcount {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
-  font-size: 12px;
+  vertical-align: -2px;
 }
 @media (min-width: 900px) {
   #editor header,
@@ -1422,8 +1415,7 @@ body.sheet-open #edit-badge {
   opacity: 0;
 }
 .media .play,
-.media .dur,
-.media .count {
+.media .dur {
   pointer-events: none;
 }
 .media .fs {

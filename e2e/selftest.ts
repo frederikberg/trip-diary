@@ -571,7 +571,10 @@ async function phoneReadOnly(browser: Browser, url: string) {
   await shot(p, "phone-11-zoomed-pins");
   await p.tap(chip("6"));
   await settle(p);
-  check("a row of several photos shows their count", (await p.textContent(".media .count"))?.trim() === "3");
+  check(
+    "a note with several photos shows their count in the meta line, not on a tile",
+    (await p.textContent(".meta .mcount"))?.trim() === "3" && (await p.$(".media .count")) === null,
+  );
   const c11 = (await state(p)).center;
   await p.tap(chip("11"));
   await settle(p, 500);
