@@ -29,7 +29,10 @@ export interface Sheet {
 export const isDesktop = () => matchMedia("(min-width: 900px)").matches;
 
 function profile(d: Day): string {
-  const pts = d.track.filter((p) => p[2] != null);
+  const breaks = new Set(d.breaks);
+  // Pairs of point and whether the stretch before it was a gap between recordings, which adds no distance.
+  const withEle = d.track.flatMap((p, i) => (p[2] != null ? [{ p, gap: breaks.has(i) }] : []));
+  const pts = withEle.map((w) => w.p);
   if (pts.length < 2) return "";
   const W = 360;
   const H = 100;
@@ -39,7 +42,7 @@ function profile(d: Day): string {
     const a = pts[i - 1] as Day["track"][number];
     const b = pts[i] as Day["track"][number];
     const k = Math.cos((a[0] * Math.PI) / 180);
-    dist += Math.hypot((b[1] - a[1]) * 111.32 * k, (b[0] - a[0]) * 110.54);
+    if (!(withEle[i] as { gap: boolean }).gap) dist += Math.hypot((b[1] - a[1]) * 111.32 * k, (b[0] - a[0]) * 110.54);
     xs.push(dist);
   }
   const eles = pts.map((p) => p[2] as number);
@@ -47,14 +50,26 @@ function profile(d: Day): string {
   const hi = Math.max(...eles);
   const x = (i: number) => ((xs[i] as number) / (dist || 1)) * W;
   const y = (e: number) => H - 16 - ((e - lo) / (hi - lo || 1)) * (H - 30);
-  const line = pts.map((p, i) => `${x(i).toFixed(1)},${y(p[2] as number).toFixed(1)}`).join(" ");
+  // One run per recording: a gap between recordings is a break in the profile, not a cliff.
+  const runs: string[][] = [];
+  for (const [i, w] of withEle.entries()) {
+    if (w.gap || !runs.length) runs.push([]);
+    (runs.at(-1) as string[]).push(`${x(i).toFixed(1)},${y(w.p[2] as number).toFixed(1)}`);
+  }
   const c = dayColour(d.n);
   const top = d.stats?.max_ele ?? Math.round(hi);
   const bottom = d.stats?.min_ele ?? Math.round(lo);
   const len = d.stats?.km ?? dist;
   return `<figure class="profile"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Höhenprofil">
-    <polygon points="0,${H - 16} ${line} ${W},${H - 16}" fill="${c}26"/>
-    <polyline points="${line}" fill="none" stroke="${c}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
+    ${runs
+      .map((r) => {
+        const base = H - 16;
+        const [x0] = (r[0] as string).split(",");
+        const [x1] = (r.at(-1) as string).split(",");
+        return `<polygon points="${x0},${base} ${r.join(" ")} ${x1},${base}" fill="${c}26"/>
+    <polyline points="${r.join(" ")}" fill="none" stroke="${c}" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+      })
+      .join("\n    ")}</svg>
     <span class="hi">${Math.round(top)} m</span><span class="lo">${Math.round(bottom)} m</span><span class="len">${km(len)} km</span></figure>`;
 }
 

@@ -65,6 +65,34 @@ describe("track anchors", () => {
     expect(Math.abs(a.t - at("2026-10-17T10:51:00+02:00"))).toBeLessThan(60_000);
   });
 
+  // Two rides 10 km apart on one day, a train in between: the gap is not track.
+  const withTrain = (breaks?: number[]) => {
+    const t0 = at("2026-10-17T10:00:00+02:00");
+    const track: Day["track"] = [];
+    for (let i = 0; i < 4; i++) track.push([49.9, 7.5 + i * 0.002, 300, new Date(t0 + i * 120_000).toISOString()]);
+    for (let i = 0; i < 4; i++)
+      track.push([49.9, 7.65 + i * 0.002, 300, new Date(t0 + 3_600_000 + i * 120_000).toISOString()]);
+    const day: Day = { n: 1, date: "2026-10-17", track, breaks, stats: null, end: null, source: null };
+    return prepareTrip([day], "Europe/Berlin");
+  };
+  const midGap = { lat: 49.9, lon: 7.57, at: null, hint: null, created: 0 };
+
+  test("a gap between recordings attracts no anchor and adds no kilometres", () => {
+    const plain = anchorNote(midGap, withTrain());
+    expect(plain.off_track).toBe(false);
+    expect(plain.dist_m).toBeLessThan(5);
+
+    const gapped = withTrain([4]);
+    const a = anchorNote(midGap, gapped);
+    // The nearest ridden point is the end of the first ride, 5 km away, not the line across.
+    expect(a.off_track).toBe(true);
+    expect(a.dist_m).toBeGreaterThan(4000);
+    expect(a.t).toBeLessThan(at("2026-10-17T10:07:00+02:00"));
+    const end = anchorDayEnd(1, gapped);
+    const endPlain = anchorDayEnd(1, withTrain());
+    expect(end.km).toBeLessThan((endPlain.km as number) / 10);
+  });
+
   test("the camp shared by two days goes to the evening, or to the morning with a morning photo", () => {
     const camp = days[0]?.end as NonNullable<Day["end"]>;
     const evening = note(camp.lat, camp.lon);

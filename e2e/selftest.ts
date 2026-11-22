@@ -296,6 +296,16 @@ async function phoneReadOnly(browser: Browser, url: string) {
   check("the day end is labelled by its camp", (await p.textContent("#s-title")) === "Wildcamp Tag 3");
   await shot(p, "phone-06-day-end");
 
+  // Day 6 is two rides with a train between: the jump is one thin dashed line, each ride a solid one.
+  await p.tap(chip("d6"));
+  await settle(p);
+  const dashed = await p.$$eval("path[stroke-dasharray]", (ps) => ps.map((e) => e.getAttribute("stroke-width")));
+  check("a gap between two recordings is drawn as one thin dashed line", dashed.length === 1 && dashed[0] === "2");
+  check(
+    "its day's two recordings are solid lines",
+    (await p.$$("path:not([stroke-dasharray])[stroke-width='6']")).length === 2,
+  );
+
   // Viewer across notes: last photo of note 6, then onward into the next note with media.
   await p.tap(chip("6"));
   await settle(p);
@@ -1127,6 +1137,12 @@ async function desktop(browser: Browser, url: string) {
   await p.click(chip("d3"));
   await settle(p);
   await shot(p, "desktop-03-day-end");
+  // Day 6, zoomed out to take in both rides and the jump between them.
+  await p.click(chip("d6"));
+  await settle(p);
+  for (let i = 0; i < 3; i++) await p.click(".leaflet-control-zoom-out");
+  await settle(p);
+  await shot(p, "desktop-03b-dashed-gap");
   await p.click(chip("5"));
   await settle(p);
   check(

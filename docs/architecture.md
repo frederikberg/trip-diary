@@ -58,7 +58,8 @@ One Bun process serves the API, the media proxy and the built client.
   keyboard, so it may sit in the fixed sheet.
 - Anchors (timeline positions) are computed from the tracks when a view is built; nothing is
   stored, so adding a day re-sorts everything. Views are cached per trip revision (every write
-  bumps it) and scope.
+  bumps it) and scope. A day's `breaks` (where a new recording starts) make the stretch between
+  two recordings a gap: drawn as a thin dashed line, never nearest to a note, no kilometres.
 - Offline: a placement that fails for lack of network waits in local storage
   (`trip-outbox:<token>`) and is sent on `online`, on becoming visible and every 30 s; its
   `client_id` makes a retry find the note it already made. A 403 (the login ran out) keeps the
