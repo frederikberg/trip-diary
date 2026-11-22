@@ -1,6 +1,6 @@
 {
   "name": "trip-diary",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "A map diary of a trip: walked GPX tracks, numbered notes and photos from your own Immich, behind your own login proxy.",
   "license": "MIT",
   "author": "Frederik Berg",
