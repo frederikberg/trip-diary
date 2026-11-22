@@ -65,6 +65,8 @@ bun scripts/trip.ts days import-gpx summer-walk day1.gpx day2.gpx
 ```
 
 It prints the link to hand out. Open the editing host, log in, open the trip and start writing.
+A trip whose days come later can also start on the editing host's start page (Neue Reise); its
+settings page holds the rest: dates, privacy, day numbering and the read links.
 To try the app without any of this, `bun install && bun run build && bun e2e/stack.ts` runs it on
 invented sample data.
 

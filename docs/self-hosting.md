@@ -55,6 +55,10 @@ curl -s -H 'X-Auth-Request-Email: you@example.org' https://trip.example.org/<vie
 # The editing host without a login must redirect to the sign-in
 curl -sI https://trip-edit.example.org/ | head -1
 
+# A forged header on the public host must not reach the editor's trip pages: expect 403
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'X-Auth-Request-Email: you@example.org' \
+  -H 'Origin: https://trip-edit.example.org' -d label=x https://trip.example.org/trips/<slug>/shares
+
 # The admin API must answer 403 from outside, in every spelling
 for p in /api/admin/trips //api/admin/trips /api/admin/./trips /x/%2e%2e/api/admin/trips; do
   curl -s --path-as-is -o /dev/null -w "$p %{http_code}\n" https://trip.example.org$p

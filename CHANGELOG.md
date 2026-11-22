@@ -7,6 +7,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- New trips from the editor's start page ("Neue Reise"): title, slug, short title, time zone (the browser's to start with), first day and last day or an open end. The trip records its end in `extra.end_date` (a date or `open`), and the editor lands in it.
+- A settings page per trip for the editor, from the start page and the trip's menu: title, short title, time zone, first and last day, ending an open trip today, the day numbering, the two privacy settings, and the read links: add one, see each, revoke one. The trip's last live link cannot be revoked there. Revoking or adding a link carries this device's drafts and waiting notes over to the link the trip opens with.
+- A day offset per trip (`day_offset`, admin API and `trip new`/`trip set --day-offset`): it is added to every day number shown, so preparation and travel days before the real start read Tag 0 or Tag -1. Stored day numbers, note keys and routes stay as they are.
+
+### Changed
+
+- Adding a read link through the admin API moves the trip's revision, so an open editor page picks up the link to hand out.
+
 ## [0.13.1] - 2026-11-22
 
 ### Fixed

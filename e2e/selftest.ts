@@ -38,6 +38,9 @@ interface State {
 const state = (p: Page) => p.evaluate(() => (window as unknown as { trip: { state(): State } }).trip.state());
 const keys = (p: Page) => p.evaluate(() => (window as unknown as { trip: { keys(): string[] } }).trip.keys());
 const shot = (p: Page, name: string) => p.screenshot({ path: join(out, `${name}.jpg`), type: "jpeg", quality: 70 });
+/** The whole page, for the editor's form pages, which scroll. */
+const pageShot = (p: Page, name: string) =>
+  p.screenshot({ path: join(out, `${name}.jpg`), type: "jpeg", quality: 70, fullPage: true });
 const settle = (p: Page, ms = 350) => p.waitForTimeout(ms);
 const chip = (key: string) => `#strip [data-key="${key}"]`;
 
@@ -1098,7 +1101,7 @@ async function homePage(browser: Browser, stack: Stack, tripPath: string) {
   await shot(p, "home-01-trips");
   const links = await p.$$eval("main a", (a) => a.map((x) => `${x.getAttribute("href")} ${x.textContent}`));
   check("logged in, / lists the trips", links.length >= 1 && links.some((l) => l.includes("Mittelgebirge")), links);
-  await p.tap("main a");
+  await p.tap("main li.trip > a:first-child");
   await p.waitForSelector("#add", { timeout: 8000 });
   check(
     "a tap opens the trip in edit mode",
@@ -1107,6 +1110,144 @@ async function homePage(browser: Browser, stack: Stack, tripPath: string) {
   );
   check("home: no page errors", errors.length === 0, errors);
   await ctx.close();
+}
+
+/** A new trip from the start page, its settings, a day offset on the sample trip, and read links, on a phone. */
+async function tripSettings(browser: Browser, stack: Stack) {
+  const ctx = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 2,
+    timezoneId: "Europe/Lisbon",
+  });
+  await playProxy(ctx, stack.editBase);
+  const p = await ctx.newPage();
+  const errors: string[] = [];
+  await watch(p, errors);
+  await p.goto(`${stack.editBase}/`, { waitUntil: "domcontentloaded" });
+  await shot(p, "settings-01-home");
+  await p.tap('a[href="/trips/new"]');
+  await p.waitForSelector('input[name="slug"]');
+  check(
+    "new trip: the time zone starts as the browser's",
+    (await p.inputValue('input[name="timezone"]')) === "Europe/Lisbon",
+    await p.inputValue('input[name="timezone"]'),
+  );
+  await p.fill('input[name="title"]', "Über die Höhen");
+  await p.type('input[name="title"]', " 2027");
+  check(
+    "new trip: the title fills in the slug",
+    (await p.inputValue('input[name="slug"]')) === "uber-die-hohen-2027",
+    await p.inputValue('input[name="slug"]'),
+  );
+  await p.fill('input[name="slug"]', "hoehen");
+  await p.fill('input[name="start_date"]', "2027-05-01");
+  await pageShot(p, "settings-02-new-trip");
+  await p.tap('button[type="submit"]');
+  await p.waitForSelector("#edit-badge:not([hidden])", { timeout: 8000 }).catch(() => {});
+  check(
+    "new trip: Anlegen opens the new trip in edit mode",
+    /^\/[A-Za-z0-9_-]{22}$/.test(new URL(p.url()).pathname) && (await p.isVisible("#edit-badge")),
+    p.url(),
+  );
+  const made = (await (await stack.call("/api/admin/trips/hoehen", { admin: true })).json()) as TripView;
+  check(
+    "new trip: it carries its start, an open end and the zone",
+    made.trip.start_date === "2027-05-01" &&
+      (made.trip.extra as { end_date?: string }).end_date === "open" &&
+      made.trip.timezone === "Europe/Lisbon",
+    made.trip,
+  );
+  await settle(p, 500);
+  await shot(p, "settings-03-empty-trip");
+  const token = new URL(p.url()).pathname.slice(1);
+  await p.evaluate((t) => localStorage.setItem(`trip-draft:${t}:d1`, '{"title":"","text":"unterwegs"}'), token);
+
+  await p.tap("#edit-badge");
+  await p.tap("#edit-settings");
+  await p.waitForSelector('input[name="first_day"]');
+  check("the trip menu opens the trip's settings", new URL(p.url()).pathname === "/trips/hoehen", p.url());
+  await p.fill('input[name="first_day"]', "0");
+  await p.fill('input[name="end_date"]', "2027-05-12");
+  await pageShot(p, "settings-04-settings");
+  await p.tap('form[action="/trips/hoehen"] button[type="submit"]');
+  await p.waitForSelector(".msg.ok");
+  const saved = (await (await stack.call("/api/admin/trips/hoehen", { admin: true })).json()) as TripView;
+  check(
+    "settings: saving stores the offset and the last day",
+    saved.trip.day_offset === -1 && (saved.trip.extra as { end_date?: string }).end_date === "2027-05-12",
+    saved.trip,
+  );
+  await p.fill('input[name="label"]', "Familie");
+  await p.tap('form[action="/trips/hoehen/shares"] button');
+  await p.waitForSelector(".msg.ok");
+  check("settings: a new link is listed and marked as the one shared", (await p.$$(".link")).length === 2);
+  const moved = await p.evaluate(
+    (t) => ({
+      old: localStorage.getItem(`trip-draft:${t}:d1`),
+      keys: Object.keys(localStorage).filter((k) => k.startsWith("trip-draft:") && k.endsWith(":d1")),
+    }),
+    token,
+  );
+  const working = (await p.getAttribute("[data-drafts-to]", "data-drafts-to")) as string;
+  check(
+    "settings: this device's draft follows the link the trip now opens with",
+    moved.old === null && moved.keys.length === 1 && moved.keys[0] === `trip-draft:${working}:d1` && working !== token,
+    moved,
+  );
+  await p.tap(".link:last-of-type summary");
+  await settle(p);
+  await pageShot(p, "settings-05-links");
+  await p.tap(".link:last-of-type form button");
+  await p.waitForSelector(".msg.ok");
+  check(
+    "settings: revoking a link stops it",
+    (await (await stack.call(`/api/t/${token}`)).status) === 404 && (await p.$$(".link")).length === 1,
+  );
+  await p.tap(".link summary");
+  await p.tap(".link form button");
+  await p.waitForSelector(".msg.err");
+  check("settings: the last link cannot be revoked", (await p.$$(".link")).length === 1);
+  await pageShot(p, "settings-06-last-link");
+
+  // The sample trip with an offset: day 1 reads Tag 0 wherever a day number shows.
+  await stack.call("/api/admin/trips/sample", { method: "PATCH", admin: true, json: { day_offset: -1 } });
+  await open(p, `${stack.editBase}/${stack.editorView}`);
+  await p.waitForSelector("#add", { timeout: 8000 });
+  await settle(p, 500);
+  const strip = await p.$eval(chip("d1"), (c) => c.querySelector(".num")?.textContent);
+  const flag = await p.$eval('[data-pin="d3"] b', (b) => b.textContent).catch(() => null);
+  await p.tap(chip("d1"));
+  await settle(p);
+  const head = await p.$eval("#s-num", (e) => e.textContent);
+  const meta = await p.$eval("#sheet .meta", (e) => e.textContent ?? "");
+  await shot(p, "settings-07-offset");
+  await p.tap(chip("2"));
+  await settle(p);
+  const noteMeta = await p.$eval("#sheet .meta", (e) => e.textContent ?? "");
+  const noteDay = (await tripView(p)).notes.find((n) => n.key === "2")?.anchor.day as number;
+  check(
+    "offset -1: strip, flag, sheet and a note's day read one less",
+    strip === "0" &&
+      flag === "2" &&
+      head === "0" &&
+      meta.startsWith("Tag 0") &&
+      noteMeta.startsWith(`Tag ${noteDay - 1} ·`),
+    { strip, flag, head, meta, noteMeta, noteDay },
+  );
+  await stack.call("/api/admin/trips/sample", { method: "PATCH", admin: true, json: { day_offset: 0 } });
+  check("settings: no page errors", errors.length === 0, errors);
+  await ctx.close();
+
+  const wide = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await playProxy(wide, stack.editBase);
+  const d = await wide.newPage();
+  await d.goto(`${stack.editBase}/trips/hoehen`, { waitUntil: "domcontentloaded" });
+  await pageShot(d, "settings-08-desktop");
+  await d.goto(`${stack.editBase}/trips/new`, { waitUntil: "domcontentloaded" });
+  await pageShot(d, "settings-09-desktop-new");
+  await wide.close();
 }
 
 async function desktop(browser: Browser, url: string) {
@@ -1197,6 +1338,7 @@ try {
   await homePage(browser, stack, `/${stack.view}`);
   await phoneEdit(browser, stack, `${stack.editBase}/${stack.editorView}`, `${stack.base}/${stack.view}`);
   await desktop(browser, read);
+  await tripSettings(browser, stack);
 } catch (e) {
   check("the run finished", false, (e as Error).message);
 } finally {
