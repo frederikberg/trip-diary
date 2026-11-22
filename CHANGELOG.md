@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-11-22
+
 ### Fixed
 
 - The server keeps one built view per trip and link instead of one per revision, so a long run of writes (an import of many notes into a trip with long tracks) no longer grows its memory until it is killed.
