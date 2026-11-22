@@ -70,10 +70,17 @@ done
 - **Key:** an API key with `asset.read` and `asset.view`. The app only reads: asset metadata, the
   time-window search, thumbnails, previews and video playback. Some Immich versions may want
   `asset.download` for video playback too; add it if videos do not play.
-- **Whose library:** the key sees its owner's whole library, and the editor can attach any asset
-  of it (the photo picker and `trip media attach`). Create a dedicated Immich user for the key, and
-  put into its library only what you are willing to put in a diary, for instance through partner
-  sharing or shared albums.
+- **Shared albums (optional):** with `album.read` on the key as well, the photo picker also lists
+  what others put into albums shared with the key's user, in the same time window and pickable like
+  the user's own photos. Without it the picker shows the user's own (and partners') assets, and the
+  log says once that the key lacks `album.read`. The album list is fetched again every
+  `immich.albums_minutes`, so a newly shared album shows up after at most that long. A photo
+  attached from a shared album stays reachable as long as the album holds it and is shared with the
+  user; once it is not, it disappears from view links like a deleted one.
+- **Whose library:** the key sees its owner's whole library, the albums shared with it, and its
+  partners' assets; the editor can attach any of them (the photo picker and `trip media attach`).
+  Create a dedicated Immich user for the key, and put into its reach only what you are willing to
+  put in a diary, for instance through partner sharing or shared albums.
 - **Reachability:** `immich.url` is how the app container reaches Immich (a service name on a
   shared Docker network works). Browsers never talk to Immich: the app proxies every image and
   video.

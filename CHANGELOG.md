@@ -7,6 +7,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- The photo picker (and the admin `suggest`) also lists photos and videos from albums shared with the Immich key's user, in the same time window, pickable like the user's own, with or without GPS. It needs `album.read` on the key; without it the picker shows the user's own assets as before and the log says so once. The album list is kept for `immich.albums_minutes` (new, default 10).
+
 ## [0.14.0] - 2026-11-22
 
 ### Added

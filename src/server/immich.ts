@@ -1,5 +1,6 @@
 // The Immich API, as far as the app uses it: asset metadata and search (asset.read), thumbnails,
-// previews and video playback (asset.view). The key is sent only from here and never reaches a client.
+// previews and video playback (asset.view), and the albums shared with the key's user (album.read,
+// optional). The key is sent only from here and never reaches a client.
 import { createHash } from "node:crypto";
 import type { MediaSize, MediaType } from "../shared/api";
 
@@ -21,10 +22,21 @@ export class ImmichError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /** Immich's own status, when it answered. */
+    readonly upstream: number | null = null,
   ) {
     super(message);
   }
 }
+
+/** A shared album's span: the days of its first and last asset, wall clock, as Immich gives them. */
+interface AlbumSpan {
+  id: string;
+  start: number;
+  end: number;
+}
+
+const DAY_MS = 86_400_000;
 
 interface RawAsset {
   id: string;
@@ -60,15 +72,20 @@ export class Immich {
   private readonly timeoutMs: number;
   private readonly bodyTimeoutMs: number;
   private readonly previewSize: number;
+  private readonly albumsMs: number;
+  private albums: { at: number; list: AlbumSpan[] } | null = null;
+  private albumsFetch: Promise<AlbumSpan[]> | null = null;
+  private albumsDenied = false;
 
   constructor(
     private readonly url: string,
     private readonly key: string,
-    o: { timeoutMs: number; bodyTimeoutMs: number; previewSize: number },
+    o: { timeoutMs: number; bodyTimeoutMs: number; previewSize: number; albumsMs: number },
   ) {
     this.timeoutMs = o.timeoutMs;
     this.bodyTimeoutMs = o.bodyTimeoutMs;
     this.previewSize = o.previewSize;
+    this.albumsMs = o.albumsMs;
   }
 
   private async call(path: string, init: RequestInit = {}): Promise<Response> {
@@ -80,8 +97,8 @@ export class Immich {
         throw new ImmichError(`Immich unreachable: ${e.message}`, 502);
       },
     );
-    if (res.status === 400 || res.status === 404) throw new ImmichError("asset not found in Immich", 404);
-    if (!res.ok) throw new ImmichError(`Immich answered ${res.status}`, 502);
+    if (res.status === 400 || res.status === 404) throw new ImmichError("asset not found in Immich", 404, res.status);
+    if (!res.ok) throw new ImmichError(`Immich answered ${res.status}`, 502, res.status);
     return res;
   }
 
@@ -124,17 +141,77 @@ export class Immich {
     return this.toInfo(raw);
   }
 
-  /** Every image and video taken in [from, to), oldest first. */
+  /**
+   * The albums shared with or by the key's user, kept for `albumsMs`; requests arriving while the
+   * list is fetched share that fetch. Without album.read on the key there are none, and a failing
+   * fetch gives none this once.
+   */
+  private sharedAlbums(): Promise<AlbumSpan[]> {
+    if (this.albums && Date.now() - this.albums.at < this.albumsMs) return Promise.resolve(this.albums.list);
+    this.albumsFetch ??= this.fetchAlbums().finally(() => {
+      this.albumsFetch = null;
+    });
+    return this.albumsFetch;
+  }
+
+  private async fetchAlbums(): Promise<AlbumSpan[]> {
+    let list: AlbumSpan[] = [];
+    try {
+      const res = await this.call("/api/albums?isShared=true");
+      const raw = (await res.json()) as { id: string; startDate?: string | null; endDate?: string | null }[];
+      list = raw.flatMap((a) => {
+        const start = Date.parse(a.startDate ?? "");
+        const end = Date.parse(a.endDate ?? "");
+        return Number.isFinite(start) && Number.isFinite(end) ? [{ id: a.id, start, end }] : [];
+      });
+      this.albumsDenied = false;
+    } catch (e) {
+      if (!(e instanceof ImmichError) || e.upstream !== 403) {
+        console.warn(`shared albums: ${(e as Error).message}; the photo picker shows the key's own assets only`);
+        return [];
+      }
+      if (!this.albumsDenied)
+        console.warn("shared albums: the Immich key lacks album.read; the photo picker shows its own assets only");
+      this.albumsDenied = true;
+    }
+    this.albums = { at: Date.now(), list };
+    return list;
+  }
+
+  /**
+   * Every image and video taken in [from, to), oldest first: the key's own library (with its
+   * partners') and what the albums shared with it hold, in one search.
+   */
   async search(from: string, to: string): Promise<AssetInfo[]> {
+    const lo = Date.parse(from);
+    const hi = Date.parse(to);
+    // Album days are wall clock: a day either side covers every zone.
+    const albumIds = (await this.sharedAlbums())
+      .filter((a) => a.start < hi + DAY_MS && a.end + 2 * DAY_MS > lo)
+      .map((a) => a.id);
+    const takenAt = { gte: from, lt: to };
+    if (albumIds.length)
+      try {
+        // A branch naming albums searches them whoever owns their assets; the other branch is the
+        // key's own library, as a search without albums is.
+        return await this.searchFilter({
+          takenAt,
+          or: [{ type: { in: ["IMAGE", "VIDEO"] } }, { albumIds: { any: albumIds } }],
+        });
+      } catch (e) {
+        // An album unshared since the list was fetched fails the whole search.
+        if (!(e instanceof ImmichError) || e.upstream !== 400) throw e;
+        this.albums = null;
+        console.warn("shared albums: Immich refused the album search; searching the key's own assets only");
+      }
+    return this.searchFilter({ takenAt });
+  }
+
+  private async searchFilter(filter: Record<string, unknown>): Promise<AssetInfo[]> {
     const out: AssetInfo[] = [];
     let cursor: string | undefined;
     for (let page = 0; page < 20; page++) {
-      const body = {
-        filter: { takenAt: { gte: from, lt: to } },
-        withExif: true,
-        size: 1000,
-        ...(cursor ? { cursor } : {}),
-      };
+      const body = { filter, withExif: true, size: 1000, ...(cursor ? { cursor } : {}) };
       const res = await this.call("/api/search/metadata", {
         method: "POST",
         headers: { "content-type": "application/json" },
