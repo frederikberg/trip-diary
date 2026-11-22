@@ -7,6 +7,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Videos play inside the note: with autoplay on (the default) the note's videos start in their tiles, muted, one after another with the row scrolling along, a single one looping. Two switches above the row, autoplay and mute, are remembered per browser. The space bar plays and pauses.
+- A full-screen button on each video tile. In the viewer a video starts when it comes into view, with sound, and the space bar plays and pauses it.
+
+### Changed
+
+- Tapping a video in a note plays it in place instead of opening the viewer. Videos in the viewer no longer preload their neighbours' metadata.
+
 ## [0.10.0] - 2026-11-22
 
 First public release.

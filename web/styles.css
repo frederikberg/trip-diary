@@ -1381,3 +1381,69 @@ body.sheet-open #edit-badge {
 .pswp__top-bar {
   top: var(--sat);
 }
+.vsw {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.vsw .sw {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid #d6d0c2;
+  border-radius: 999px;
+  background: transparent;
+  color: #6b6558;
+  font: 600 13px / 1 var(--sans);
+}
+.vsw .sw[aria-pressed="true"] {
+  border-color: #1f2a24;
+  background: #1f2a24;
+  color: #fff;
+}
+.media .m video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+}
+.media .m.on video {
+  opacity: 1;
+}
+.media .pp {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.media .m.playing .play {
+  opacity: 0;
+}
+.media .play,
+.media .dur,
+.media .count {
+  pointer-events: none;
+}
+.media .fs {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  width: 48px;
+  height: 48px;
+  padding: 0 0 6px 6px;
+  border: 0;
+  background: none;
+  color: #fff;
+  font-size: 18px;
+}
+.media .fs svg {
+  box-sizing: content-box;
+  padding: 5px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.6);
+}

@@ -1,5 +1,6 @@
 // The note sheet: a bottom sheet on phones (half, full, peek), a side panel on desktop.
 import type { Day, Media, Note } from "../src/shared/api";
+import { createPlayer, switchesHtml } from "./player";
 import { clock, dayColour, duration, esc, hhmm, icon, km, longDate, markdown, noteTitle } from "./util";
 
 export type Mode = "closed" | "half" | "full" | "peek";
@@ -10,6 +11,7 @@ export interface SheetEvents {
   close(): void;
   /** The user asks for another mode: a tap or a drag on the header. */
   mode(m: Mode): void;
+  /** The full-screen viewer was asked for on the medium at this index. */
   media(index: number): void;
   action(name: string): void;
 }
@@ -19,6 +21,9 @@ export interface Sheet {
   render(n: Note, day: Day | undefined, ctx: { first: boolean; last: boolean; editable: boolean }): void;
   setMode(m: Mode): void;
   mode(): Mode;
+  /** Play or pause the note's video; false when it has none. */
+  togglePlayback(): boolean;
+  pausePlayback(): void;
 }
 
 export const isDesktop = () => matchMedia("(min-width: 900px)").matches;
@@ -95,20 +100,24 @@ function meta(n: Note, day: Day | undefined, editable: boolean): string {
 function mediaRow(media: Media[]): string {
   if (!media.length) return "";
   const one = media.length === 1;
-  return `<div class="media${one ? " one" : ""}">${media
+  const videos = media.filter((m) => m.type === "video").length;
+  const row = `<div class="media${one ? " one" : ""}">${media
     .map((m, i) => {
       const w = m.width ?? 4;
       const h = m.height ?? 3;
       const style = one ? `aspect-ratio:${w}/${h}` : `width:${Math.round((176 * w) / h)}px`;
-      const video =
-        m.type === "video"
-          ? `<span class="play">${icon.play}</span>${m.duration_ms ? `<span class="dur">${clock(m.duration_ms)}</span>` : ""}`
-          : "";
       const count = i === 0 && media.length > 1 ? `<span class="count">${icon.camera}${media.length}</span>` : "";
-      return `<button class="m" data-i="${i}" style="${style}" aria-label="${m.type === "video" ? "Video" : "Foto"} ${i + 1} von ${media.length}">
-        <img src="${esc(m.preview)}" alt="${esc(m.caption ?? "")}" loading="lazy" decoding="async">${video}${count}</button>`;
+      const img = `<img src="${esc(m.preview)}" alt="${esc(m.caption ?? "")}" loading="lazy" decoding="async">`;
+      if (m.type !== "video")
+        return `<button class="m" data-i="${i}" style="${style}" aria-label="Foto ${i + 1} von ${media.length}">${img}${count}</button>`;
+      // A video plays in its tile; only the corner button opens the viewer.
+      return `<div class="m vid" data-i="${i}" style="${style}">${img}<video src="${esc(m.video as string)}" muted playsinline preload="none"></video>
+        <button class="pp" aria-label="Video ${i + 1} von ${media.length} abspielen oder anhalten"><span class="play">${icon.play}</span></button>
+        ${m.duration_ms ? `<span class="dur">${clock(m.duration_ms)}</span>` : ""}${count}
+        <button class="fs" aria-label="Video im Vollbild">${icon.fit}</button></div>`;
     })
     .join("")}</div>`;
+  return (videos ? switchesHtml() : "") + row;
 }
 
 export function createSheet(el: HTMLElement, on: SheetEvents): Sheet {
@@ -121,6 +130,8 @@ export function createSheet(el: HTMLElement, on: SheetEvents): Sheet {
   const head = q("sh-head");
   const body = q("s-body");
   let mode: Mode = "closed";
+  const player = createPlayer(body);
+  let shown = "";
 
   q("s-prev").addEventListener("click", (e) => {
     e.stopPropagation();
@@ -137,6 +148,11 @@ export function createSheet(el: HTMLElement, on: SheetEvents): Sheet {
   body.addEventListener("click", (e) => {
     const t = e.target as HTMLElement;
     const m = t.closest<HTMLElement>(".m");
+    if (m?.classList.contains("vid")) {
+      if (t.closest(".fs")) on.media(Number(m.dataset.i));
+      else if (t.closest(".pp")) player.tap(Number(m.dataset.i));
+      return;
+    }
     if (m) return on.media(Number(m.dataset.i));
     const a = t.closest<HTMLElement>("[data-act]");
     if (a) on.action(a.dataset.act as string);
@@ -199,14 +215,24 @@ export function createSheet(el: HTMLElement, on: SheetEvents): Sheet {
         }</div>`;
       }
       h += `<p class="foot"><button class="link" data-act="link">${icon.link}<span>Link zu dieser Notiz</span></button></p>`;
+      // The same note drawn again (a refreshed view) keeps its video where it stood.
+      player.release(n.key === shown);
+      shown = n.key;
       body.innerHTML = h;
       body.scrollTop = 0;
+      player.attach(n.key);
     },
     setMode(m) {
       mode = m;
+      if (m === "closed") {
+        player.release(false);
+        shown = "";
+      } else if (m === "peek") player.pause();
       el.className = m === "closed" ? "" : `open ${m}`;
       document.body.classList.toggle("sheet-open", m !== "closed");
     },
     mode: () => mode,
+    togglePlayback: () => player.toggle(),
+    pausePlayback: () => player.pause(),
   };
 }

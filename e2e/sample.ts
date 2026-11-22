@@ -90,7 +90,7 @@ const NOTES: SampleNote[] = [
     media: ["v", "l", "l"],
   },
   { number: 8, at: [4, 0.5], title: "Quelle am Wegrand", text: "Wasser aufgefüllt, endlich.", media: ["p"] },
-  { number: 10, at: [5, 0.3], title: "Lichtung", text: "Sonne auf dem Moos.", media: ["l", "l"] },
+  { number: 10, at: [5, 0.3], title: "Lichtung", text: "Sonne auf dem Moos.", media: ["v", "l", "v"] },
   { number: 9, at: [5, 0.78], title: "", text: "", media: [] },
   {
     number: 11,

@@ -15,7 +15,7 @@ One Bun process serves the API, the media proxy and the built client.
   proxy fetch) · `tokens.ts`. `src/shared/time.ts` is the zone arithmetic server and client share.
 - `web/` — the client, vanilla TS bundled by `scripts/build-web.ts` into `dist/`:
   `main.ts` (selection controller, history layers, band rule) · `map.ts` · `strip.ts` ·
-  `sheet.ts` · `viewer.ts` (PhotoSwipe) · `edit.ts` · `picker.ts` (the photo picker) · `immich-link.ts` (the asset id in a pasted link) · `api.ts` · `util.ts` · `styles.css`.
+  `sheet.ts` · `player.ts` (inline video) · `viewer.ts` (PhotoSwipe) · `edit.ts` · `picker.ts` (the photo picker) · `immich-link.ts` (the asset id in a pasted link) · `api.ts` · `util.ts` · `styles.css`.
   `web/map/` is the map page's own client: see *Maps*.
 - `GET /<viewToken>` returns `dist/index.html` with the whole `TripView` inlined, so the first
   paint is one request.
@@ -24,6 +24,15 @@ One Bun process serves the API, the media proxy and the built client.
   through). Photos and videos come only from Immich: there is no upload route and no media
   storage; the `media` table's `source`, `file` and `bytes` columns are leftovers the code neither
   reads nor writes (`source` is always `immich`).
+- Videos: in the open note a video plays in its own tile (`player.ts`), muted and playsinline; the
+  tile's corner button opens the viewer, whose videos start on arrival with sound and answer the
+  space bar. Two switches above the row, autoplay and mute (both on by default), live in
+  `localStorage` (`trip-video`) and apply to every note; mute concerns only the tiles. One video
+  plays at a time: a note's videos follow one another (the row scrolls to the one playing, the last
+  hands over to the first), a single one loops. Sound without a tap is refused by iOS, so a start the
+  browser refuses runs muted and the switch shows it. Leaving a note, closing the sheet or opening
+  the viewer stops its videos and drops their source, so no connection to Immich stays open, and the
+  tiles load nothing until they play (`preload="none"`).
 - Attaching: the editor's "Foto" button opens the picker, a page in normal document flow like the
   note editor: Immich thumbnails of four hours around the note's anchor, whole hours, moved by
   "früher"/"später", the note's own time drawn between them. Taps pick, one button attaches the
