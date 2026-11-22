@@ -54,7 +54,9 @@ interface FakeFilter {
   takenAt: { gte: string; lt: string };
   type?: { in: string[] };
   albumIds?: { any: string[] };
-  or?: Omit<FakeFilter, "takenAt" | "or">[];
+  /** `{eq: null}` leaves trashed assets out; without it they are found, as in Immich. */
+  trashedAt?: { eq: null };
+  or?: Omit<FakeFilter, "takenAt" | "trashedAt" | "or">[];
 }
 
 /** A video body of this many bytes; Range requests get the matching slice. */
@@ -105,6 +107,7 @@ export function fakeImmich(): FakeImmich {
         const to = Date.parse(takenAt.lt);
         const items = [...assets.values()]
           .filter((a) => Date.parse(a.taken_at) >= from && Date.parse(a.taken_at) < to)
+          .filter((a) => !top.trashedAt || !a.trashed)
           .filter((a) => (or ? or.some((b) => matches(a, b)) : matches(a, top)))
           .map(raw);
         return Response.json({ assets: { items, nextCursor: null } });
