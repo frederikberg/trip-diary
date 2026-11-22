@@ -26,10 +26,10 @@ One Bun process serves the API, the media proxy and the built client.
   reads nor writes (`source` is always `immich`).
 - Videos: in the open note a video plays in its own tile (`player.ts`), muted and playsinline; the
   tile's corner button opens the viewer, whose videos start on arrival with sound and answer the
-  space bar. Two switches above the row, autoplay and mute (both on by default), live in
+  space bar. Three switches above the row, autoplay, mute (both on by default) and repeat (off), live in
   `localStorage` (`trip-video`) and apply to every note; mute concerns only the tiles. One video
-  plays at a time: a note's videos follow one another (the row scrolls to the one playing, the last
-  hands over to the first), a single one loops. Sound without a tap is refused by iOS, so a start the
+  plays at a time: a note's videos follow one another (the row scrolls to the one playing); with
+  repeat on, the last hands over to the first and a single one loops. Sound without a tap is refused by iOS, so a start the
   browser refuses runs muted and the switch shows it. Leaving a note, closing the sheet or opening
   the viewer stops its videos and drops their source, so no connection to Immich stays open, and the
   tiles load nothing until they play (`preload="none"`).

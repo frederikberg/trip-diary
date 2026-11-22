@@ -336,10 +336,11 @@ async function phoneReadOnly(browser: Browser, url: string) {
     log,
   );
   check(
-    "a single video loops, and both switches show their defaults without anything stored",
-    (await p.$eval(".media .m.vid video", (v) => (v as HTMLVideoElement).loop)) &&
+    "a single video plays once, and the switches show their defaults without anything stored",
+    !(await p.$eval(".media .m.vid video", (v) => (v as HTMLVideoElement).loop)) &&
       (await pressed(p, "autoplay")) === "true" &&
       (await pressed(p, "mute")) === "true" &&
+      (await pressed(p, "loop")) === "false" &&
       (await stored(p)) === null,
   );
   await shot(p, "phone-09-video-inline");
@@ -359,6 +360,15 @@ async function phoneReadOnly(browser: Browser, url: string) {
       (await stored(p))?.mute === false,
     await stored(p),
   );
+  await p.tap(sw("loop"));
+  check(
+    "the repeat switch makes the single video loop and is stored",
+    (await pressed(p, "loop")) === "true" &&
+      (await p.$eval(".media .m.vid video", (v) => (v as HTMLVideoElement).loop)) &&
+      (await stored(p))?.loop === true,
+  );
+  await p.tap(sw("loop"));
+  check("and off again", !(await p.$eval(".media .m.vid video", (v) => (v as HTMLVideoElement).loop)));
   await p.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await p.keyboard.press("Space");
   check("the space bar pauses the note's video", !(await tilePlaying(p, 0)));
@@ -400,7 +410,22 @@ async function phoneReadOnly(browser: Browser, url: string) {
     w.__end(document.querySelector('.media .m[data-i="2"] video') as Element);
   });
   await settle(p, 900);
-  check("after the last video the first starts again", (await tilePlaying(p, 0)) && !(await tilePlaying(p, 2)));
+  check(
+    "after the last video nothing starts again while repeat is off",
+    !(await tilePlaying(p, 0)) && !(await tilePlaying(p, 2)),
+  );
+  await p.tap(sw("loop"));
+  await p.tap('.media .m[data-i="2"] .pp');
+  await p.evaluate(() => {
+    const w = window as unknown as { __end(el: Element): void };
+    w.__end(document.querySelector('.media .m[data-i="2"] video') as Element);
+  });
+  await settle(p, 900);
+  check(
+    "with repeat on, after the last video the first starts again",
+    (await tilePlaying(p, 0)) && !(await tilePlaying(p, 2)),
+  );
+  await p.tap(sw("loop"));
 
   // The full-screen button: sound whatever the mute switch says, space, starting on arrival.
   await p.tap(sw("mute"));

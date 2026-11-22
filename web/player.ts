@@ -1,15 +1,17 @@
-// Inline playback of the videos in the open note, and the two switches (autoplay, mute) kept in
-// this browser. One video plays at a time; with several in a note they follow one another and the
-// row scrolls to the one playing.
+// Inline playback of the videos in the open note, and the three switches (autoplay, mute, repeat)
+// kept in this browser. One video plays at a time; with several in a note they follow one another
+// and the row scrolls to the one playing.
 
 const STORE = "trip-video";
 
 interface Prefs {
   autoplay: boolean;
   mute: boolean;
+  /** A single video loops, several start over after the last. */
+  loop: boolean;
 }
 
-const DEFAULTS: Prefs = { autoplay: true, mute: true };
+const DEFAULTS: Prefs = { autoplay: true, mute: true, loop: false };
 
 function readPrefs(): Prefs {
   try {
@@ -27,12 +29,12 @@ function writePrefs(p: Prefs) {
   }
 }
 
-/** The two switches, shown above a media row that holds a video. */
+/** The switches, shown above a media row that holds a video. */
 export function switchesHtml(): string {
   const p = readPrefs();
   const sw = (name: keyof Prefs, text: string) =>
     `<button class="sw" data-vsw="${name}" aria-pressed="${p[name]}">${text}</button>`;
-  return `<div class="vsw">${sw("autoplay", "Autoplay")}${sw("mute", "Stumm")}</div>`;
+  return `<div class="vsw">${sw("autoplay", "Autoplay")}${sw("mute", "Stumm")}${sw("loop", "Wiederholen")}</div>`;
 }
 
 export interface Player {
@@ -61,7 +63,8 @@ export function createPlayer(root: HTMLElement): Player {
 
   function showSwitches() {
     for (const b of root.querySelectorAll<HTMLElement>("[data-vsw]")) {
-      const on = b.dataset.vsw === "mute" ? [...root.querySelectorAll("video")].every((v) => v.muted) : prefs.autoplay;
+      const name = b.dataset.vsw as keyof Prefs;
+      const on = name === "mute" ? [...root.querySelectorAll("video")].every((v) => v.muted) : prefs[name];
       b.setAttribute("aria-pressed", String(on));
     }
   }
@@ -107,7 +110,9 @@ export function createPlayer(root: HTMLElement): Player {
       const all = tiles();
       const t = tileOf(e.target as Element);
       if (!t || !prefs.autoplay || all.length < 2) return;
-      const next = all[(all.indexOf(t) + 1) % all.length] as HTMLElement;
+      const i = all.indexOf(t) + 1;
+      if (i === all.length && !prefs.loop) return;
+      const next = all[i % all.length] as HTMLElement;
       reveal(next, true);
       start(next);
     },
@@ -121,6 +126,10 @@ export function createPlayer(root: HTMLElement): Player {
       // The switch shows what the videos are doing, which can differ from the stored choice after a refused unmute.
       prefs.mute = b.getAttribute("aria-pressed") !== "true";
       for (const v of root.querySelectorAll("video")) v.muted = prefs.mute;
+    } else if (name === "loop") {
+      prefs.loop = !prefs.loop;
+      const all = tiles();
+      for (const t of all) video(t).loop = prefs.loop && all.length === 1;
     } else {
       prefs.autoplay = !prefs.autoplay;
     }
@@ -141,7 +150,7 @@ export function createPlayer(root: HTMLElement): Player {
       for (const t of all) {
         const v = video(t);
         v.muted = prefs.mute;
-        v.loop = all.length === 1;
+        v.loop = prefs.loop && all.length === 1;
       }
       showSwitches();
       const again = saved?.key === k && saved.i < all.length ? saved : null;
