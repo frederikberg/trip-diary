@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-22
+
 ### Added
 
 - New trips from the editor's start page ("Neue Reise"): title, slug, short title, time zone (the browser's to start with), first day and last day or an open end. The trip records its end in `extra.end_date` (a date or `open`), and the editor lands in it.
