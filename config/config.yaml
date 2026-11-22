@@ -31,7 +31,8 @@ admin:
 immich:
   # Base URL of the Immich server as this app reaches it, without /api.
   url: http://immich.example.org:2283
-  # API key with the permissions asset.read and asset.view.
+  # API key with the permissions asset.read and asset.view; with album.read too, the photo picker
+  # also lists what others put into albums shared with the key's user.
   api_key: ${IMMICH_API_KEY}
   # How long a proxied request may wait for Immich's response headers, in milliseconds.
   timeout_ms: 15000
@@ -43,6 +44,9 @@ immich:
   # How often every attached Immich asset is checked for being trashed or deleted, in minutes.
   # Such media disappear from view links until the asset is back.
   sweep_minutes: 60
+  # How long the list of albums shared with the key's user is kept before Immich is asked again,
+  # in minutes. A newly shared album shows in the photo picker after at most this long.
+  albums_minutes: 10
 
 auth:
   # Trust the identity header on the editing host as the editor's login. Turn on only where the

@@ -33,15 +33,28 @@ export interface FakeAsset {
   trashed?: boolean;
   /** Video playback that sends a chunk every 50 ms and never ends. */
   endless?: boolean;
+  /** Owned by another user: reachable only while a shared album holds it. */
+  foreign?: boolean;
 }
 
 export interface FakeImmich {
   url: string;
   assets: Map<string, FakeAsset>;
+  /** Albums shared with the key's user: album id → the ids of the assets in it. */
+  albums: Map<string, string[]>;
+  /** Whether the key has album.read; without it the album list answers 403. */
+  albumRead: boolean;
   requests: { method: string; path: string; key: string | null; range: string | null; body?: unknown }[];
   /** Make every media request fail with this status. */
   failWith: number | null;
   stop(): void;
+}
+
+interface FakeFilter {
+  takenAt: { gte: string; lt: string };
+  type?: { in: string[] };
+  albumIds?: { any: string[] };
+  or?: Omit<FakeFilter, "takenAt" | "or">[];
 }
 
 /** A video body of this many bytes; Range requests get the matching slice. */
@@ -56,8 +69,13 @@ const svg = (a: FakeAsset, w: number, h: number, label: string) =>
 
 export function fakeImmich(): FakeImmich {
   const assets = new Map<string, FakeAsset>();
+  const albums = new Map<string, string[]>();
   const requests: FakeImmich["requests"] = [];
-  const state = { failWith: null as number | null };
+  const state = { failWith: null as number | null, albumRead: true };
+  const inAlbum = (a: FakeAsset, ids: string[]) => ids.some((id) => albums.get(id)?.includes(a.id));
+  // As Immich: a branch naming albums searches them, any other branch the user's own assets.
+  const matches = (a: FakeAsset, f: Omit<FakeFilter, "takenAt" | "or">) =>
+    (!f.type || f.type.in.includes(a.type)) && (f.albumIds ? inAlbum(a, f.albumIds.any) : !a.foreign);
   const server = Bun.serve({
     port: 0,
     async fetch(req) {
@@ -65,18 +83,35 @@ export function fakeImmich(): FakeImmich {
       const key = req.headers.get("x-api-key");
       requests.push({ method: req.method, path: url.pathname + url.search, key, range: req.headers.get("range") });
       if (key !== IMMICH_KEY) return Response.json({ message: "Authentication required" }, { status: 401 });
+      if (url.pathname === "/api/albums" && req.method === "GET") {
+        if (!state.albumRead)
+          return Response.json({ message: "Missing required permission: album.read" }, { status: 403 });
+        return Response.json(
+          [...albums].map(([id, ids]) => {
+            const days = ids.flatMap((i) => assets.get(i)?.taken_at.slice(0, 10) ?? []).sort();
+            const day = (d: string | undefined) => (d ? `${d}T00:00:00.000Z` : undefined);
+            return { id, albumName: `album ${id.slice(0, 4)}`, startDate: day(days[0]), endDate: day(days.at(-1)) };
+          }),
+        );
+      }
       if (url.pathname === "/api/search/metadata" && req.method === "POST") {
-        const body = (await req.json()) as { filter: { takenAt: { gte: string; lt: string } } };
+        const body = (await req.json()) as { filter: FakeFilter };
         (requests.at(-1) as { body?: unknown }).body = body;
-        const from = Date.parse(body.filter.takenAt.gte);
-        const to = Date.parse(body.filter.takenAt.lt);
+        const { takenAt, or, ...top } = body.filter;
+        const named = [top, ...(or ?? [])].flatMap((f) => f.albumIds?.any ?? []);
+        if (named.some((id) => !albums.has(id)))
+          return Response.json({ message: "Not found or no album.read access" }, { status: 400 });
+        const from = Date.parse(takenAt.gte);
+        const to = Date.parse(takenAt.lt);
         const items = [...assets.values()]
           .filter((a) => Date.parse(a.taken_at) >= from && Date.parse(a.taken_at) < to)
+          .filter((a) => (or ? or.some((b) => matches(a, b)) : matches(a, top)))
           .map(raw);
         return Response.json({ assets: { items, nextCursor: null } });
       }
       const m = /^\/api\/assets\/([^/]+)(\/.*)?$/.exec(url.pathname);
-      const a = m ? assets.get(m[1] as string) : undefined;
+      const found = m ? assets.get(m[1] as string) : undefined;
+      const a = found && (!found.foreign || inAlbum(found, [...albums.keys()])) ? found : undefined;
       if (!m || !a) return Response.json({ message: "Not found or no asset.read access" }, { status: 400 });
       const rest = m[2] ?? "";
       if (rest === "") return Response.json(raw(a));
@@ -142,7 +177,14 @@ export function fakeImmich(): FakeImmich {
   return {
     url: `http://127.0.0.1:${server.port}`,
     assets,
+    albums,
     requests,
+    get albumRead() {
+      return state.albumRead;
+    },
+    set albumRead(v) {
+      state.albumRead = v;
+    },
     get failWith() {
       return state.failWith;
     },
@@ -349,6 +391,7 @@ export function testApp(
       body_timeout_ms: over.bodyTimeoutMs ?? 600_000,
       preview_size: 1440,
       sweep_minutes: 60,
+      albums_minutes: 10,
     },
     auth: {
       editor_from_header: true,
@@ -395,6 +438,7 @@ export function testApp(
       timeoutMs: 2000,
       bodyTimeoutMs: config.immich.body_timeout_ms,
       previewSize: 1440,
+      albumsMs: config.immich.albums_minutes * 60_000,
     }),
     geocoder: new Geocoder({
       url: config.maps.geocoder_url,

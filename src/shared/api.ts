@@ -25,7 +25,7 @@
  * forward `/api/admin` from the internet (docs/security.md).
  *
  * Media come only from Immich: the app holds no uploads and reads Immich with a key that may only
- * read assets.
+ * read assets (and, optionally, list albums).
  *
  * Maps are a separate feature on the same server (`maps.enabled`, off by default; the meeting
  * point on them needs `meet.enabled` too): a map of people and places, reached through two
@@ -88,9 +88,9 @@
  *                                                     videos only.
  *
  * Picking photos (view token + the editor; reads, so no `Origin` is needed; 403 for anyone else)
- *   GET  /api/t/<token>/suggest                     as the admin's suggest: the trip's Immich
- *                                                     assets in a time window, for the editor's
- *                                                     photo picker.
+ *   GET  /api/t/<token>/suggest                     as the admin's suggest: the Immich assets of a
+ *                                                     time window within the trip's, for the
+ *                                                     editor's photo picker.
  *   GET  /api/t/<token>/immich/<assetId>/thumb      → the asset's thumbnail, proxied from Immich,
  *                                                     whether or not a note carries it yet.
  *
@@ -123,9 +123,12 @@
  *   PUT    /api/admin/trips/<slug>/waypoints        WaypointsPut → Waypoint[] (replaces all)
  *   GET    /api/admin/trips/<slug>/suggest          ?from=<Iso>&to=<Iso> (default: the trip's
  *                                                     track span, an hour either side) → Suggestion[],
- *                                                     oldest first. Clamped to the trip's window, 12 h
- *                                                     either side: the span of its tracks, its notes'
- *                                                     anchors, start_date and its days' dates.
+ *                                                     oldest first: the key's own and its partners'
+ *                                                     assets and, when the key has album.read, those
+ *                                                     of albums shared with it, each once. Clamped to
+ *                                                     the trip's window, 12 h either side: the span
+ *                                                     of its tracks, its notes' anchors, start_date
+ *                                                     and its days' dates.
  *   GET    /api/admin/trips/<slug>/m/<mediaId>/<MediaSize>
  *                                                   → the bytes, as the view route.
  */

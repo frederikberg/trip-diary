@@ -114,7 +114,12 @@ describe("media trashed in Immich", () => {
   const sweep = () =>
     sweepMedia(
       app.store,
-      new Immich(immich.url, IMMICH_KEY, { timeoutMs: 2000, bodyTimeoutMs: 60_000, previewSize: 1440 }),
+      new Immich(immich.url, IMMICH_KEY, {
+        timeoutMs: 2000,
+        bodyTimeoutMs: 60_000,
+        previewSize: 1440,
+        albumsMs: 600_000,
+      }),
       () => new Date(),
     );
 
@@ -138,6 +143,7 @@ describe("media trashed in Immich", () => {
       timeoutMs: 500,
       bodyTimeoutMs: 1000,
       previewSize: 1440,
+      albumsMs: 600_000,
     });
     await sweepMedia(app.store, down, () => new Date());
     expect((await friend()).notes.find((n) => n.key === "1")?.media.length).toBe(1);

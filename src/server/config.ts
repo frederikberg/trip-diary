@@ -15,6 +15,7 @@ export interface Config {
     body_timeout_ms: number;
     preview_size: number;
     sweep_minutes: number;
+    albums_minutes: number;
   };
   auth: { editor_from_header: boolean; identity_header: string; sign_out_path: string; allowed_emails: string };
   maps: {
@@ -59,6 +60,7 @@ const SCHEMA: { [S in keyof Config]: { [K in keyof Config[S]]: Kind } } = {
     body_timeout_ms: "int",
     preview_size: "int",
     sweep_minutes: "int",
+    albums_minutes: "int",
   },
   auth: { editor_from_header: "bool", identity_header: "string", sign_out_path: "string", allowed_emails: "string" },
   maps: {

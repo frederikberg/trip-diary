@@ -1,7 +1,9 @@
 // The editor's photo picker: the time-window search and thumbnails of assets no note carries yet.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { Immich } from "../src/server/immich";
+import { sweepMedia } from "../src/server/sweep";
 import type { Note, Suggestion } from "../src/shared/api";
-import { type FakeImmich, fakeImmich, IMMICH_KEY, seedTrip, type TestApp, testApp } from "./helpers";
+import { type FakeAsset, type FakeImmich, fakeImmich, IMMICH_KEY, seedTrip, type TestApp, testApp } from "./helpers";
 
 const PHOTO = "77777777-7777-4777-8777-777777777777";
 const VIDEO = "88888888-8888-4888-8888-888888888888";
@@ -100,5 +102,128 @@ describe("the picker's thumbnails", () => {
     const r = await picker("/immich/00000000-0000-4000-8000-000000000000/thumb");
     expect(r.status).toBe(200);
     expect(r.headers.get("cache-control")).toBe("no-store");
+  });
+});
+
+describe("photos from shared albums", () => {
+  const OWN = "a0000000-0000-4000-8000-000000000001";
+  const FRIEND = "a0000000-0000-4000-8000-000000000002";
+  const FRIEND_NO_GPS = "a0000000-0000-4000-8000-000000000003";
+  const FRIEND_LATER = "a0000000-0000-4000-8000-000000000004";
+  const STRANGER = "a0000000-0000-4000-8000-000000000005";
+  const FRIEND_2025 = "a0000000-0000-4000-8000-000000000006";
+  const SHARED = "b0000000-0000-4000-8000-000000000001";
+  const OLD = "b0000000-0000-4000-8000-000000000002";
+  const window = span("2026-10-18T10:00:00Z", "2026-10-18T14:00:00Z");
+
+  let fake: FakeImmich;
+  let a2: TestApp;
+  let view: string;
+  const ids = async (path = window) =>
+    ((await (await a2.call(`/api/t/${view}${path}`, { editor: true })).json()) as Suggestion[]).map((x) => x.immich_id);
+  const albumCalls = (f: FakeImmich) => f.requests.filter((r) => r.path.startsWith("/api/albums")).length;
+  const asset = (f: FakeImmich, id: string, taken_at: string, more: Partial<FakeAsset> = {}) =>
+    f.assets.set(id, { id, type: "IMAGE", width: 4000, height: 3000, taken_at, ...more });
+
+  beforeAll(async () => {
+    fake = fakeImmich();
+    asset(fake, OWN, "2026-10-18T11:00:00.000Z");
+    asset(fake, FRIEND, "2026-10-18T11:30:00.000Z", { foreign: true, lat: 50.1, lon: 7.7 });
+    asset(fake, FRIEND_NO_GPS, "2026-10-18T12:00:00.000Z", { foreign: true });
+    asset(fake, FRIEND_LATER, "2026-10-18T20:00:00.000Z", { foreign: true });
+    asset(fake, STRANGER, "2026-10-18T11:45:00.000Z", { foreign: true });
+    asset(fake, FRIEND_2025, "2025-05-01T10:00:00.000Z", { foreign: true });
+    fake.albums.set(SHARED, [OWN, FRIEND, FRIEND_NO_GPS, FRIEND_LATER]);
+    fake.albums.set(OLD, [FRIEND_2025]);
+    a2 = testApp(fake.url);
+    view = (await seedTrip(a2)).view;
+  });
+  afterAll(() => fake.stop());
+
+  test("the window lists what shared albums hold beside the own assets, each once, GPS or not", async () => {
+    fake.requests.length = 0;
+    expect(await ids()).toEqual([OWN, FRIEND, FRIEND_NO_GPS]);
+    const search = JSON.stringify(fake.requests.find((r) => r.path === "/api/search/metadata")?.body);
+    expect(search).toContain(SHARED);
+    expect(search).not.toContain(OLD);
+  });
+
+  test("the album list is asked once and kept", async () => {
+    fake.requests.length = 0;
+    await ids();
+    await ids(span("2026-10-18T09:00:00Z", "2026-10-18T13:00:00Z"));
+    expect(albumCalls(fake)).toBe(0);
+  });
+
+  test("a friend's photo comes through the picker's thumbnail and attaches to a note, with or without GPS", async () => {
+    const thumb = await a2.call(`/api/t/${view}/immich/${FRIEND}/thumb`, { editor: true });
+    expect(thumb.headers.get("cache-control")).toBe("private, max-age=86400");
+    const n = (await (
+      await a2.call(`/api/t/${view}/notes`, { method: "POST", editor: true, json: { lat: 50.1, lon: 7.7 } })
+    ).json()) as Note;
+    for (const id of [FRIEND, FRIEND_NO_GPS]) {
+      const r = await a2.call(`/api/t/${view}/notes/${n.key}/media`, {
+        method: "POST",
+        editor: true,
+        json: { immich_id: id },
+      });
+      expect(r.status).toBe(201);
+    }
+    const media = ((await (await a2.call(`/api/t/${view}/notes/${n.key}`, { editor: true })).json()) as Note).media;
+    expect(media.map((m) => [m.immich_id, m.lat])).toEqual([
+      [FRIEND, 50.1],
+      [FRIEND_NO_GPS, null],
+    ]);
+    // Taken out of the album, the friend's photo is out of reach and the sweep marks it.
+    fake.albums.set(SHARED, [OWN, FRIEND_NO_GPS, FRIEND_LATER]);
+    const immich = new Immich(fake.url, IMMICH_KEY, {
+      timeoutMs: 2000,
+      bodyTimeoutMs: 60_000,
+      previewSize: 1440,
+      albumsMs: 600_000,
+    });
+    expect(await sweepMedia(a2.store, immich, () => new Date())).toBe(1);
+    const after = ((await (await a2.call(`/api/t/${view}/notes/${n.key}`, { editor: true })).json()) as Note).media;
+    expect(after.map((m) => m.unavailable_at != null)).toEqual([true, false]);
+    fake.albums.set(SHARED, [OWN, FRIEND, FRIEND_NO_GPS, FRIEND_LATER]);
+    expect(await sweepMedia(a2.store, immich, () => new Date())).toBe(1);
+  });
+
+  test("an album unshared since the list was fetched leaves the own assets, and the list is asked again", async () => {
+    fake.albums.delete(SHARED);
+    fake.requests.length = 0;
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(await ids()).toEqual([OWN]);
+      expect(albumCalls(fake)).toBe(0);
+      await ids();
+      expect(albumCalls(fake)).toBe(1);
+    } finally {
+      warn.mockRestore();
+      fake.albums.set(SHARED, [OWN, FRIEND, FRIEND_NO_GPS, FRIEND_LATER]);
+    }
+  });
+
+  test("a key without album.read gives the own assets, says so once in the log and does not ask again", async () => {
+    const f = fakeImmich();
+    asset(f, OWN, "2026-10-18T11:00:00.000Z");
+    asset(f, FRIEND, "2026-10-18T11:30:00.000Z", { foreign: true });
+    f.albums.set(SHARED, [FRIEND]);
+    f.albumRead = false;
+    const a3 = testApp(f.url);
+    const v3 = (await seedTrip(a3)).view;
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      for (let i = 0; i < 2; i++) {
+        const r = await a3.call(`/api/t/${v3}${window}`, { editor: true });
+        expect(r.status).toBe(200);
+        expect(((await r.json()) as Suggestion[]).map((x) => x.immich_id)).toEqual([OWN]);
+      }
+      expect(albumCalls(f)).toBe(1);
+      expect(warn.mock.calls.map((c) => String(c[0]))).toEqual([expect.stringContaining("album.read")]);
+    } finally {
+      warn.mockRestore();
+      f.stop();
+    }
   });
 });

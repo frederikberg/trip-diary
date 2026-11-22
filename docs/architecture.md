@@ -45,8 +45,18 @@ One Bun process serves the API, the media proxy and the built client.
   the editor could already reach by attaching it. The search stays inside the trip's window, which
   the notes' times widen, so today's photos are found while today's track is not recorded yet; an
   iPhone photo appears only once the Immich app uploaded it, and an empty recent window says so.
-  The app only reads Immich: asset lookups, thumbnails, video playback and the time-window search
-  (a POST to `/api/search/metadata`, a read); its key may not write.
+  The window holds what Immich's search gives the key's user (own and partners' assets) and what
+  the albums shared with that user hold, in one search: a filter whose `or` has one branch
+  naming those albums, which Immich searches whoever owns their assets. Only albums whose dates
+  come near the window are named; the album list is kept `immich.albums_minutes`
+  (`Immich.sharedAlbums`). Without `album.read` on the key the list answers 403 and the window
+  holds the user's own assets, logged once; an album unshared since the list was fetched fails
+  the search, which then runs again without albums and drops the list. The picker does not mark
+  whose a photo is. Immich's asset access checks pass for an album's assets, so lookups,
+  thumbnails, video and the sweep work for them as for the user's own; taken out of the album, an
+  attached one turns unavailable at the next sweep.
+  The app only reads Immich: asset lookups, thumbnails, video playback, the album list and the
+  time-window search (a POST to `/api/search/metadata`, a read); its key may not write.
 - The editor's trip pages (`/trips/new`, `/trips/<slug>`): server-rendered HTML forms posting to
   the same host, over the operations the admin API has (`makeTrip`, `changeTrip`, `revoke` and
   `newShare` in `app.ts` serve both). Every POST passes the edit routes' check (the login and the

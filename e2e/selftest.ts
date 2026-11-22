@@ -733,7 +733,8 @@ async function phoneEdit(browser: Browser, stack: Stack, url: string, friendsUrl
   await p.waitForSelector("#editor.open", { state: "detached" });
   check("cancel discards the draft", (await p.textContent(".entry"))?.includes("Self-test") === true);
 
-  // Pick photos from Immich: thumbnails around the note's time, two picked out of order.
+  // Pick photos from Immich: thumbnails around the note's time, two picked out of order. The last
+  // one is somebody else's, in an album shared with the key's user.
   const t13 = Date.parse((await tripView(p)).notes.find((n) => n.key === "13")?.anchor.t as string);
   const near = [-50, -10, 30].map((min, i) => {
     const id = `cafe000${i}-0000-4000-8000-00000000000${i}`;
@@ -745,9 +746,11 @@ async function phoneEdit(browser: Browser, stack: Stack, url: string, friendsUrl
       taken_at: new Date(t13 + min * 60_000).toISOString(),
       colour: ["#b7794f", "#5f7f99", "#7a9e7e"][i],
       duration_ms: 21_000,
+      foreign: i === 2,
     });
     return id;
   });
+  stack.immich.albums.set("a1b00000-0000-4000-8000-000000000001", [near[2] as string]);
   check("no file input is left on the page", (await p.$$('input[type="file"]')).length === 0);
   await p.tap('[data-act="photo"]');
   await p.waitForSelector("#picker.open .p-item", { timeout: 8000 });

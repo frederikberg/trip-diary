@@ -42,7 +42,7 @@ through a header; only that host can edit. [docs/self-hosting.md](docs/self-host
 
 ## What you need
 
-- A running [Immich](https://immich.app) and an API key for it (`asset.read`, `asset.view`).
+- A running [Immich](https://immich.app) and an API key for it (`asset.read`, `asset.view`; `album.read` too for photos from shared albums).
 - A reverse proxy with a login in front of one hostname, and two hostnames, one public and one for editing.
 - Docker, or [Bun](https://bun.sh) to run from source.
 - GPX recordings of your walking days (any app or watch that writes them).

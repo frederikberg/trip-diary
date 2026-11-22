@@ -18,6 +18,7 @@ const immich = new Immich(config.immich.url, config.immich.api_key, {
   timeoutMs: config.immich.timeout_ms,
   bodyTimeoutMs: config.immich.body_timeout_ms,
   previewSize: config.immich.preview_size,
+  albumsMs: config.immich.albums_minutes * 60_000,
 });
 const geocoder = new Geocoder({
   url: config.maps.geocoder_url,
