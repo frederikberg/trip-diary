@@ -38,7 +38,12 @@ tapping the map; attach photos from Immich with the photo button.
 ## Other commands
 
 - Trips: `ls`, `show`, `set`, `links`, `share <trip> --label L` (another view link) and
-  `share <trip> --revoke ID`, `export <trip> <dir>`.
+  `share <trip> --revoke ID`, `export <trip> <dir>`. `new` and `set` take `--day-offset N`: it is
+  added to every day number the app shows (-1 shows day 1 as Tag 0). The CLI addresses days and
+  day-end notes by their stored number (`d3`, `--day 3`); `show` adds the shown one, `day 1 (Tag 0)`.
+- The editor can do most of this in the browser too: a new trip from the start page on the editing
+  host, and a trip's title, dates, time zone, day numbers, privacy and read links on its settings
+  page.
 - Notes: `note <trip> [key]`, `note add`, `note set`, `note mv`, `note rm`. A note is addressed by
   its key: `7` for a numbered note, `d3` for the day-end note of day 3.
 - Media: `media attach <trip> <key> <asset id or Immich photo link>`, `media suggest --day N`

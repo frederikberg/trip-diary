@@ -10,7 +10,7 @@ One Bun process serves the API, the media proxy and the built client.
   request/response type. Server, web client and CLI clients import it; change it first.
 - `src/server/` — `main.ts` (wiring) · `config.ts` (loader) · `db.ts` (schema migrations, row
   access; WAL) · `http.ts` (error type, response helpers, body validation) · `app.ts` (routing, auth, trip handlers) ·
-  `maps.ts` (map page, token API and admin API) · `geocode.ts` (Photon client) · `home.ts` (the start page) · `view.ts` (rows → API shapes)
+  `maps.ts` (map page, token API and admin API) · `geocode.ts` (Photon client) · `home.ts` (the editor's pages: start, new trip, trip settings) · `view.ts` (rows → API shapes)
   · `ordering.ts` (the timeline rule, its only implementation) · `immich.ts` (Immich client and
   proxy fetch) · `tokens.ts`. `src/shared/time.ts` is the zone arithmetic server and client share.
 - `web/` — the client, vanilla TS bundled by `scripts/build-web.ts` into `dist/`:
@@ -47,6 +47,22 @@ One Bun process serves the API, the media proxy and the built client.
   iPhone photo appears only once the Immich app uploaded it, and an empty recent window says so.
   The app only reads Immich: asset lookups, thumbnails, video playback and the time-window search
   (a POST to `/api/search/metadata`, a read); its key may not write.
+- The editor's trip pages (`/trips/new`, `/trips/<slug>`): server-rendered HTML forms posting to
+  the same host, over the operations the admin API has (`makeTrip`, `changeTrip`, `revoke` and
+  `newShare` in `app.ts` serve both). Every POST passes the edit routes' check (the login and the
+  editing `Origin`); a GET from another host is redirected to the editing host, as `/` is. The pages
+  work without script; one inline script, allowed by its hash in the page's CSP, prefills the time
+  zone and the slug and gathers this device's drafts. A new trip records `extra.end_date` (a date,
+  or `open`), the field a job importing a running trip's days can watch; the settings change it
+  only on a trip that has one. Revoking the trip's last live view link is refused there (the trip
+  could no longer be opened); deleting trips or days stays with the admin API.
+- Which link the editor opens a trip with: its editor view token while it has one, else its newest
+  live view link (`editorToken`). Drafts and queued placements are stored per link, so adding or
+  revoking a link can move the editor to another one; the settings page moves this device's drafts
+  and queue from the trip's other links onto that one.
+- Day numbers: `Day.n`, note keys (`d3`) and routes count from 1; `trip.day_offset` is added
+  wherever the client shows a day number (`dayNo` in `web/util.ts`), so days before the real
+  start can read Tag 0 or Tag -1.
 - Notes without a place: a numbered note's `lat`/`lon` may both be null. It then always has `at`
   (the table's CHECK holds it; made without one it gets its creation time), anchors by rule `at`
   on the day `dayAt` gives that time, has no pin and does not move the map when selected. It is

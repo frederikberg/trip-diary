@@ -75,6 +75,8 @@ export const HOME_CSP =
 /** Content-Security-Policy of the form pages: forms post to this origin, the one script runs by its hash. */
 export const FORM_CSP = `default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-${SCRIPT_HASH}'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`;
 
+const GEAR = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>`;
+
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 const STYLE = `
@@ -92,10 +94,13 @@ p.out{margin-top:1.5rem}
 p.out a,a.btn{display:inline-block;padding:.5rem 1rem;border-radius:.6rem;border:1px solid #c9c1b0;background:transparent}
 .trip{display:flex;gap:.5rem;align-items:stretch}
 .trip>a:first-child,.trip>.item{flex:1}
-.trip>a.set{display:flex;align-items:center;padding:0 .9rem;color:#6c6859}
+.trip>a.set{display:flex;align-items:center;justify-content:center;width:3.2rem;padding:0;color:#6c6859}
 .top{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin:0 0 1rem}
 .top h1{margin:0}
-.top a{padding:.5rem .9rem}
+.top a{padding:.5rem .9rem;white-space:nowrap}
+p.detail{margin:0 0 1rem}
+a.back{display:inline-block;padding:.2rem 0;margin:0 0 .4rem;border:0;background:none;color:#6c6859}
+.row a.btn{padding:.65rem 1.2rem}
 form{margin:0}
 fieldset{border:1px solid #e5e0d5;border-radius:.7rem;background:#fff;margin:0 0 1rem;padding:.4rem 1rem 1rem}
 legend{font-weight:600;padding:0 .3rem}
@@ -148,7 +153,7 @@ export function homePage(trips: HomeTrip[], maps: HomeMap[], signOutPath: string
   const items = trips
     .map(
       (t) =>
-        `<li class="trip">${item(t)}<a class="set" href="${esc(t.settings)}" aria-label="Einstellungen: ${esc(t.title)}">Einstellungen</a></li>`,
+        `<li class="trip">${item(t)}<a class="set" href="${esc(t.settings)}" aria-label="Einstellungen: ${esc(t.title)}">${GEAR}</a></li>`,
     )
     .join("\n");
   const karten = maps.length
@@ -285,8 +290,9 @@ export function settingsPage(s: SettingsPage, zones: string[]): string {
     : "";
   return page(
     `Einstellungen – ${s.heading}`,
-    `${s.drafts ? `<div hidden data-drafts-to="${esc(s.drafts.to)}" data-drafts-from="${esc(s.drafts.from.join(" "))}"></div>\n` : ""}<div class="top"><h1>${esc(s.heading)}</h1>${s.open ? `<a class="btn" href="${esc(s.open)}">Zur Reise</a>` : ""}</div>
-<p class="hint">${esc(s.detail)} · <a class="btn" href="/">Alle Reisen</a></p>
+    `${s.drafts ? `<div hidden data-drafts-to="${esc(s.drafts.to)}" data-drafts-from="${esc(s.drafts.from.join(" "))}"></div>\n` : ""}<a class="back" href="/">‹ Alle Reisen</a>
+<div class="top"><h1>${esc(s.heading)}</h1>${s.open ? `<a class="btn" href="${esc(s.open)}">Zur Reise</a>` : ""}</div>
+<p class="hint detail">${esc(s.detail)}</p>
 ${msg(s.notice, s.error)}
 <form method="post" action="${base}">
 <fieldset><legend>Reise</legend>
