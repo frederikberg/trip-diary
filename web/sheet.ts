@@ -1,7 +1,7 @@
 // The note sheet: a bottom sheet on phones (half, full, peek), a side panel on desktop.
 import type { Day, Media, Note } from "../src/shared/api";
 import { createPlayer, switchesHtml } from "./player";
-import { clock, dayColour, duration, esc, hhmm, icon, km, longDate, markdown, noteTitle } from "./util";
+import { clock, dayColour, dayNo, duration, esc, hhmm, icon, km, longDate, markdown, noteTitle } from "./util";
 
 export type Mode = "closed" | "half" | "full" | "peek";
 
@@ -92,7 +92,7 @@ const CAMP: Record<string, string> = { wild: "Wildcamp", nature: "Naturcamp", tr
 function meta(n: Note, day: Day | undefined, editable: boolean): string {
   const a = n.anchor;
   const parts: string[] = [];
-  if (a.day != null) parts.push(esc(`Tag ${a.day}`));
+  if (a.day != null) parts.push(esc(`Tag ${dayNo(a.day)}`));
   if (a.rule === "rest-day") parts.push(esc(longDate(a.t)), "Ruhetag");
   else {
     const when = `${longDate(a.t)} · ${a.rule === "day-end" ? `Ankunft ${hhmm(a.t)}` : a.rule === "track" ? `ca. ${hhmm(a.t)}` : hhmm(a.t)}`;
@@ -212,7 +212,7 @@ export function createSheet(el: HTMLElement, on: SheetEvents): Sheet {
       const num = q("s-num");
       num.className = `num${n.kind === "day" ? " day" : ""}`;
       num.style.setProperty("--day", dayColour(n.kind === "day" ? n.day : n.anchor.day));
-      num.innerHTML = n.kind === "day" ? `${icon.flag}${n.day}` : String(n.number);
+      num.innerHTML = n.kind === "day" ? `${icon.flag}${dayNo(n.day)}` : String(n.number);
       q("s-title").textContent = noteTitle(n, day);
       (q("s-prev") as HTMLButtonElement).disabled = ctx.first;
       (q("s-next") as HTMLButtonElement).disabled = ctx.last;

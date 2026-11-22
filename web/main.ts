@@ -9,7 +9,7 @@ import { createEdit, type Edit } from "./edit";
 import { createMap } from "./map";
 import { createSheet, isDesktop, type Mode } from "./sheet";
 import { createStrip } from "./strip";
-import { $, icon, noteTitle, setZone, toast } from "./util";
+import { $, icon, noteTitle, setDayOffset, setZone, toast } from "./util";
 import { closeViewer, openViewer, viewerOpen } from "./viewer";
 
 const token = location.pathname.split("/")[1] as string;
@@ -19,6 +19,7 @@ let view = JSON.parse($("trip").textContent as string) as TripView;
 // Editing is on where the server inlined the editable view: the editing host, behind the proxy's login.
 const loggedIn = view.editable;
 setZone(view.trip.timezone);
+setDayOffset(view.trip.day_offset);
 
 let byKey = new Map<string, { note: Note; idx: number }>();
 let days = new Map<number, Day>();
@@ -71,6 +72,7 @@ function index(v: TripView) {
 
 function apply(v: TripView) {
   view = v;
+  setDayOffset(v.trip.day_offset);
   index(v);
   mapView.render(v);
   strip.render(v);
@@ -342,6 +344,7 @@ function editBadge() {
   const b = $("edit-badge");
   b.hidden = false;
   b.onclick = () => $("edit-menu").classList.toggle("show");
+  $<HTMLAnchorElement>("edit-settings").href = `/trips/${encodeURIComponent(view.trip.slug)}`;
   $("edit-stop").onclick = () => location.assign(view.sign_out_path as string);
 }
 

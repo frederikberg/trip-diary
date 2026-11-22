@@ -35,6 +35,14 @@ export const setZone = (tz: string) => {
   zone = tz;
 };
 
+/** The trip's `day_offset`: day numbers are stored from 1, shown shifted by it. */
+let dayOffset = 0;
+export const setDayOffset = (offset: number) => {
+  dayOffset = offset;
+};
+/** The number a day is shown with. */
+export const dayNo = (n: number | null) => (n == null ? "" : String(n + dayOffset));
+
 const fmt = (iso: string | number, o: Intl.DateTimeFormatOptions) =>
   new Date(iso).toLocaleString("de-DE", { timeZone: zone, ...o });
 export const hhmm = (iso: string | number) => fmt(iso, { hour: "2-digit", minute: "2-digit" });
@@ -53,7 +61,7 @@ export const clock = (ms: number) => {
 /** A note's title, or what stands in for a missing one. */
 export function noteTitle(n: Note, day?: Day): string {
   if (n.title.trim()) return n.title.trim();
-  if (n.kind === "day") return day?.end?.name || `Tag ${n.day}`;
+  if (n.kind === "day") return day?.end?.name || `Tag ${dayNo(n.day)}`;
   const first = n.text
     .split("\n")
     .map((l) => l.replace(/[#>*_`[\]-]/g, "").trim())
@@ -62,7 +70,7 @@ export function noteTitle(n: Note, day?: Day): string {
   return `Notiz ${n.number}`;
 }
 
-export const label = (n: Note) => (n.kind === "day" ? `Tag ${n.day}` : `Notiz ${n.number}`);
+export const label = (n: Note) => (n.kind === "day" ? `Tag ${dayNo(n.day)}` : `Notiz ${n.number}`);
 
 // Icons: 24×24 strokes, coloured by currentColor.
 const svg = (d: string, extra = "") =>

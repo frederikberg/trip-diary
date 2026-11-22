@@ -228,6 +228,8 @@ export const MIGRATIONS = [
    ALTER TABLE note_new RENAME TO note;
    CREATE UNIQUE INDEX note_client ON note (trip_id, client_id) WHERE client_id IS NOT NULL;`,
   `ALTER TABLE day ADD COLUMN breaks TEXT;`,
+  // Added to every day number shown, so days before the real start can read Tag 0, Tag -1.
+  `ALTER TABLE trip ADD COLUMN day_offset INTEGER NOT NULL DEFAULT 0;`,
 ];
 
 export function openDb(path: string): Database {
@@ -260,6 +262,7 @@ export interface TripRow {
   extra: string;
   /** JSON `TripPrivacy`. */
   privacy: string;
+  day_offset: number;
 }
 
 export interface ShareRow {
@@ -428,19 +431,19 @@ export class Store {
   insertTrip(t: Omit<TripRow, "id" | "rev">): TripRow {
     return this.db
       .query(
-        `INSERT INTO trip (slug, title, short_title, timezone, start_date, created, extra, privacy)
-         VALUES ($slug, $title, $short_title, $timezone, $start_date, $created, $extra, $privacy) RETURNING *`,
+        `INSERT INTO trip (slug, title, short_title, timezone, start_date, created, extra, privacy, day_offset)
+         VALUES ($slug, $title, $short_title, $timezone, $start_date, $created, $extra, $privacy, $day_offset) RETURNING *`,
       )
       .get(t) as TripRow;
   }
   updateTrip(
     id: number,
-    t: Pick<TripRow, "title" | "short_title" | "timezone" | "start_date" | "extra" | "privacy">,
+    t: Pick<TripRow, "title" | "short_title" | "timezone" | "start_date" | "extra" | "privacy" | "day_offset">,
   ): void {
     this.db
       .query(
         `UPDATE trip SET title = $title, short_title = $short_title, timezone = $timezone, start_date = $start_date,
-         extra = $extra, privacy = $privacy, rev = rev + 1 WHERE id = $id`,
+         extra = $extra, privacy = $privacy, day_offset = $day_offset, rev = rev + 1 WHERE id = $id`,
       )
       .run({ ...t, id });
   }

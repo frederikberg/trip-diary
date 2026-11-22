@@ -58,6 +58,26 @@
  *   GET  /<viewToken>                               → as on the public host, with the editable
  *                                                     TripView inlined for the editor.
  *
+ * The editor's trip pages (editing host; HTML pages and HTML form posts, not JSON; for anyone but
+ * the editor GET answers as `/` does and POST 403; every POST needs the editing `Origin`; a POST
+ * answers 303 to the page to show next, or the form again with the problem and 400/409)
+ *   GET  /trips/new                                 → the form for a new trip
+ *   POST /trips/new                                 slug, title, short_title, timezone, start_date,
+ *                                                     end_date (empty: open) → 303 to the new trip's
+ *                                                     page. Makes the trip as TripCreate does, with
+ *                                                     `extra.end_date`.
+ *   GET  /trips/<slug>                              → the trip's settings and its read links
+ *   POST /trips/<slug>                              title, short_title, timezone, start_date,
+ *                                                     end_date (only for a trip that has one; empty:
+ *                                                     open), first_day (the number day 1 shows:
+ *                                                     `day_offset` + 1), hide_camps, delay_hours
+ *                                                     → 303 to the settings
+ *   POST /trips/<slug>/end                          → `extra.end_date` today in the trip's zone, 303
+ *   POST /trips/<slug>/shares                       label → a new view share, 303
+ *   POST /trips/<slug>/shares/<id>/revoke           → revokes a view share that is not an editor's,
+ *                                                     303; 409 when it is the trip's last live view
+ *                                                     link, as the trip could then not be opened.
+ *
  * View (view token)
  *   GET  /api/t/<token>                             → TripView. `editable` is true for the editor
  *                                                     on the editing host. Sends an ETag; answers
@@ -140,9 +160,15 @@ export interface Trip {
   /** IANA zone the trip is displayed in, e.g. `Europe/Berlin`. */
   timezone: string;
   start_date: string | null;
-  /** Empty in views without an editor session. */
+  /**
+   * Fields the app keeps for other tools; empty in views that are not editable. The editor's pages
+   * set `end_date`: the trip's last day (`YYYY-MM-DD`) or `open`, for a job that imports a trip's
+   * days while it lasts.
+   */
   extra: Record<string, unknown>;
   privacy: TripPrivacy;
+  /** Added to every day number shown: -1 shows day 1 as "Tag 0", -2 its first two days as "Tag -1" and "Tag 0". Routes, note keys (`d3`) and `Day.n` keep the stored number. */
+  day_offset: number;
 }
 
 /** What view links hold back. Editors and admin always see everything. */
@@ -190,6 +216,8 @@ export interface TripCreate {
   extra?: Record<string, unknown>;
   /** Default: nothing held back. */
   privacy?: Partial<TripPrivacy>;
+  /** An integer from -99 to 99. Default 0. */
+  day_offset?: number;
 }
 
 export type TripPatch = Partial<Omit<TripCreate, "slug">>;

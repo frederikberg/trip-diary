@@ -42,9 +42,10 @@ const USAGE = `usage: trip [--json] [--url URL] [--token-file FILE] <command>
 The server comes from --url or TRIP_URL, the admin token from --token-file or TRIP_ADMIN_TOKEN.
 
   ls                                              trips
-  new <slug> --title T --timezone Z [--short-title S] [--start-date D]
+  new <slug> --title T --timezone Z [--short-title S] [--start-date D] [--day-offset N]
   show <trip>                                     days and notes at a glance
-  set <trip> [--title T] [--short-title S] [--timezone Z] [--start-date D]
+  set <trip> [--title T] [--short-title S] [--timezone Z] [--start-date D] [--day-offset N]
+                                                  --day-offset -1: day 1 shows as Tag 0
   links <trip>                                    shares and their links
   share <trip> --label L                          new view share
   share <trip> --revoke <id>
@@ -118,6 +119,7 @@ const OPTIONS = {
   "short-title": { type: "string" },
   timezone: { type: "string" },
   "start-date": { type: "string" },
+  "day-offset": { type: "string" },
   label: { type: "string" },
   revoke: { type: "string" },
   text: { type: "string" },
@@ -286,6 +288,7 @@ const newTrip: Handler = async (a) => {
     timezone: o.timezone,
     short_title: o["short-title"],
     start_date: o["start-date"],
+    day_offset: num("day-offset", o["day-offset"]),
   };
   const r = await api<TripCreated>("POST", "/api/admin/trips", body);
   if (o.json) return emit(r);
@@ -296,10 +299,13 @@ const show: Handler = async (a) => {
   const [slug] = need(a, 1, "show <trip>");
   const v = await view(slug);
   if (o.json) return emit(v);
-  console.log(`${v.trip.slug}  ${v.trip.title}  (${v.trip.timezone}, rev ${v.rev})`);
+  const offset = v.trip.day_offset;
+  console.log(
+    `${v.trip.slug}  ${v.trip.title}  (${v.trip.timezone}, rev ${v.rev}${offset ? `, day offset ${offset}` : ""})`,
+  );
   for (const d of v.days)
     console.log(
-      `day ${d.n}  ${d.date}  ${d.stats ? `${d.stats.km} km  +${d.stats.ascent_m} m` : "no track"}${d.end?.name ? `  camp ${d.end.name}` : ""}`,
+      `day ${d.n}${offset ? ` (Tag ${d.n + offset})` : ""}  ${d.date}  ${d.stats ? `${d.stats.km} km  +${d.stats.ascent_m} m` : "no track"}${d.end?.name ? `  camp ${d.end.name}` : ""}`,
     );
   console.log(`${v.waypoints.length} waypoints`);
   for (const n of v.notes) console.log(line(n));
@@ -312,6 +318,7 @@ const setTrip: Handler = async (a) => {
   if (o["short-title"] !== undefined) patch.short_title = o["short-title"] === "none" ? null : o["short-title"];
   if (o.timezone !== undefined) patch.timezone = o.timezone;
   if (o["start-date"] !== undefined) patch.start_date = o["start-date"] === "none" ? null : o["start-date"];
+  if (o["day-offset"] !== undefined) patch.day_offset = num("day-offset", o["day-offset"]);
   if (!Object.keys(patch).length) throw new CliFail("set: nothing to change");
   emit(await api("PATCH", tripPath(slug), patch));
 };

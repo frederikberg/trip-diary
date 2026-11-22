@@ -1,7 +1,7 @@
 // The Leaflet map: topo tiles, the day tracks, passed waypoints and the note pins.
 import * as L from "leaflet";
 import type { Note, TripView, Waypoint } from "../src/shared/api";
-import { dayColour, esc, icon } from "./util";
+import { dayColour, dayNo, esc, icon } from "./util";
 
 /** Below this zoom waypoints hide and pins shrink, so the tracks stay readable. */
 const NEAR_ZOOM = 13;
@@ -76,7 +76,7 @@ export function createMap(el: HTMLElement): MapView {
           className: "pin-wrap",
           iconSize: [30, 30],
           iconAnchor: [15, 15],
-          html: `<div class="flag${sel ? " sel" : ""}" data-pin="${n.key}" style="--day:${dayColour(n.day)}">${icon.flag}<b>${n.day}</b></div>`,
+          html: `<div class="flag${sel ? " sel" : ""}" data-pin="${n.key}" style="--day:${dayColour(n.day)}">${icon.flag}<b>${dayNo(n.day)}</b></div>`,
         })
       : L.divIcon({
           className: "pin-wrap",

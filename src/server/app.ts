@@ -18,11 +18,11 @@ import type {
   TripSummary,
   Waypoint,
 } from "../shared/api";
-import { isoInZone, parseIso, zonedInstant } from "../shared/time";
+import { isoInZone, localDate, parseIso, zonedInstant } from "../shared/time";
 import type { Config } from "./config";
 import type { MediaRow, NoteRow, ShareRow, Store, TripRow } from "./db";
 import type { Geocoder } from "./geocode";
-import { HOME_CSP, homePage } from "./home";
+import { FORM_CSP, HOME_CSP, homePage, type NewTripForm, newTripPage, type SettingsForm, settingsPage } from "./home";
 import {
   BASE_HEADERS,
   body,
@@ -45,7 +45,7 @@ import { createMapRoutes } from "./maps";
 import { haversineM, positionAt } from "./ordering";
 import { hashToken, newToken, sameSecret, TOKEN_RE } from "./tokens";
 import type { Travel } from "./travel";
-import { buildView, mediaOut, noteOut, parseNoteKey, shareOut, tripOut, type ViewScope } from "./view";
+import { buildView, mediaOut, noteOut, parseNoteKey, privacyOf, shareOut, tripOut, type ViewScope } from "./view";
 
 export interface Deps {
   config: Config;
@@ -106,6 +106,17 @@ function immichId(v: unknown, field: string): string {
   if (typeof v !== "string" || !IMMICH_ID.test(v)) throw new HttpError(400, `${field} must be an Immich asset id`);
   return v.toLowerCase();
 }
+
+function dayOffset(v: unknown): number {
+  if (typeof v !== "number" || !Number.isInteger(v) || Math.abs(v) > 99)
+    throw new HttpError(400, "day_offset must be an integer from -99 to 99");
+  return v;
+}
+
+const SLUG = /^[a-z0-9][a-z0-9-]*$/;
+
+/** The zones the editor's forms suggest. */
+const ZONES = Intl.supportedValuesOf("timeZone");
 
 /** Merges a partial `TripPrivacy` into the stored one. */
 function privacyJson(v: unknown, current: string): string {
@@ -181,27 +192,45 @@ export function createApp(deps: Deps): (req: Request) => Promise<Response> {
     if (req.headers.get("origin") !== config.server.edit_url) throw new HttpError(403, "cross-origin request");
   }
 
+  /**
+   * The editor's pages live on the editing host, behind the proxy's login: anyone else gets 404
+   * while editing is off, 403 there, and from any other host a redirect to the same page there.
+   */
+  function editorPage(req: Request, path: string): Response | null {
+    if (editorOf(req)) return null;
+    if (!config.auth.editor_from_header) throw new HttpError(404, "not found");
+    if (onEditHost(req)) throw new HttpError(403, "this account may not edit");
+    return new Response(null, {
+      status: 302,
+      headers: { ...BASE_HEADERS, location: `${config.server.edit_url}${path}`, "cache-control": "no-store" },
+    });
+  }
+
+  /**
+   * The view token the editor opens a trip with: its editor view token while it has one, so a draft
+   * kept under that token stays visible, else the newest live link. `without` leaves one share out.
+   */
+  function editorToken(trip: TripRow, without?: number): string | null {
+    const live = store.shares(trip.id).filter((s) => s.role === "view" && !s.revoked_at && s.token && s.id !== without);
+    return (live.filter((s) => s.editor).at(-1) ?? live.at(-1))?.token ?? null;
+  }
+
+  function tripDetail(trip: TripRow): string {
+    const notes = store.noteCount(trip.id);
+    const days = store.days(trip.id).length;
+    return `${days} ${days === 1 ? "Tag" : "Tage"} · ${notes} ${notes === 1 ? "Notiz" : "Notizen"}`;
+  }
+
   function home(req: Request): Response {
-    if (!editorOf(req)) {
-      if (!config.auth.editor_from_header) throw new HttpError(404, "not found");
-      // The start page lives on the editing host, behind the proxy's login.
-      if (onEditHost(req)) throw new HttpError(403, "this account may not edit");
-      return new Response(null, {
-        status: 302,
-        headers: { ...BASE_HEADERS, location: `${config.server.edit_url}/`, "cache-control": "no-store" },
-      });
-    }
-    // Each trip links its editor view token if it still has one, so a draft kept under that
-    // token stays visible; else the newest link handed out.
+    const away = editorPage(req, "/");
+    if (away) return away;
     const list = [...store.trips()].reverse().map((t) => {
-      const live = store.shares(t.id).filter((s) => s.role === "view" && !s.revoked_at && s.token);
-      const link = live.filter((s) => s.editor).at(-1) ?? live.at(-1);
-      const notes = store.noteCount(t.id);
-      const days = store.days(t.id).length;
+      const token = editorToken(t);
       return {
         title: t.title,
-        detail: `${days} ${days === 1 ? "Tag" : "Tage"} · ${notes} ${notes === 1 ? "Notiz" : "Notizen"}`,
-        href: link ? `/${link.token}` : null,
+        detail: tripDetail(t),
+        href: token ? `/${token}` : null,
+        settings: `/trips/${t.slug}`,
       };
     });
     return text(
@@ -548,7 +577,7 @@ export function createApp(deps: Deps): (req: Request) => Promise<Response> {
 
   // ---- admin
 
-  /** A view share to hand out. */
+  /** A view share to hand out. It becomes the editor's `share_url`, so the trip's revision moves. */
   function newShare(trip: TripRow, label: string): ShareCreated {
     const token = newToken();
     const row = store.insertShare({
@@ -561,18 +590,16 @@ export function createApp(deps: Deps): (req: Request) => Promise<Response> {
       editor: 0,
       base_id: null,
     });
+    store.bump(trip.id);
     return { ...shareOut(row, config.server.public_url), token, url: `${config.server.public_url}/${token}` };
   }
 
-  async function createTrip(req: Request): Promise<Response> {
-    const b = await body(req);
-    only(b, ["slug", "title", "short_title", "timezone", "start_date", "extra", "privacy"]);
-    const c = b as unknown as TripCreate;
+  /** A trip from a TripCreate, with its view share; the admin route and the editor's form share it. */
+  function makeTrip(c: TripCreate): TripCreated {
     const slug = str(c.slug, "slug", 40);
-    if (!/^[a-z0-9][a-z0-9-]*$/.test(slug))
-      throw new HttpError(400, "slug must be lowercase letters, digits and dashes");
+    if (!SLUG.test(slug)) throw new HttpError(400, "slug must be lowercase letters, digits and dashes");
     if (store.tripBySlug(slug)) throw new HttpError(409, "slug is taken");
-    const created = store.tx((): TripCreated => {
+    return store.tx((): TripCreated => {
       const trip = store.insertTrip({
         slug,
         title: str(c.title, "title", LIMITS.title),
@@ -582,16 +609,14 @@ export function createApp(deps: Deps): (req: Request) => Promise<Response> {
         created: nowIso(),
         extra: JSON.stringify(c.extra == null ? {} : record(c.extra, "extra")),
         privacy: privacyJson(c.privacy, "{}"),
+        day_offset: c.day_offset == null ? 0 : dayOffset(c.day_offset),
       });
       return { trip: tripOut(trip), view: newShare(trip, "friends") };
     });
-    return json(created, 201);
   }
 
-  async function patchTrip(trip: TripRow, req: Request): Promise<Response> {
-    const b = await body(req);
-    only(b, ["title", "short_title", "timezone", "start_date", "extra", "privacy"]);
-    const p = b as TripPatch;
+  /** Applies a TripPatch; the admin route and the editor's settings share it. */
+  function changeTrip(trip: TripRow, p: TripPatch): TripRow {
     store.updateTrip(trip.id, {
       title: p.title === undefined ? trip.title : str(p.title, "title", LIMITS.title),
       short_title: p.short_title === undefined ? trip.short_title : optStr(p.short_title, "short_title", LIMITS.title),
@@ -600,8 +625,281 @@ export function createApp(deps: Deps): (req: Request) => Promise<Response> {
         p.start_date === undefined ? trip.start_date : p.start_date == null ? null : date(p.start_date, "start_date"),
       extra: p.extra === undefined ? trip.extra : JSON.stringify(record(p.extra, "extra")),
       privacy: p.privacy === undefined ? trip.privacy : privacyJson(p.privacy, trip.privacy),
+      day_offset: p.day_offset === undefined ? trip.day_offset : dayOffset(p.day_offset),
     });
-    return json(tripOut(store.tripById(trip.id) as TripRow));
+    return store.tripById(trip.id) as TripRow;
+  }
+
+  const TRIP_FIELDS = ["title", "short_title", "timezone", "start_date", "extra", "privacy", "day_offset"];
+
+  async function createTrip(req: Request): Promise<Response> {
+    const b = await body(req);
+    only(b, ["slug", ...TRIP_FIELDS]);
+    return json(makeTrip(b as unknown as TripCreate), 201);
+  }
+
+  async function patchTrip(trip: TripRow, req: Request): Promise<Response> {
+    const b = await body(req);
+    only(b, TRIP_FIELDS);
+    return json(tripOut(changeTrip(trip, b as TripPatch)));
+  }
+
+  /** Revokes a share (an earlier edit share with its view share); 409 for an editor's view token whose edit share lives. */
+  function revoke(trip: TripRow, target: ShareRow): void {
+    if (target.editor && store.shares(trip.id).some((x) => x.base_id === target.id && !x.revoked_at))
+      throw new HttpError(409, "this view token carries a live edit link; revoke the edit share instead");
+    store.tx(() => {
+      store.revokeShare(trip.id, target.id, nowIso());
+      if (target.base_id != null) store.revokeShare(trip.id, target.base_id, nowIso());
+      store.bump(trip.id);
+    });
+  }
+
+  // ---- the editor's trip pages: forms over the same operations as the admin API
+
+  const see = (location: string) =>
+    new Response(null, { status: 303, headers: { ...BASE_HEADERS, location, "cache-control": "no-store" } });
+
+  const html = (page: string, status = 200) =>
+    text(page, status, "text/html; charset=utf-8", {
+      "content-security-policy": FORM_CSP,
+      "cache-control": "no-store",
+    });
+
+  async function form(req: Request): Promise<URLSearchParams> {
+    if (!(req.headers.get("content-type") ?? "").startsWith("application/x-www-form-urlencoded"))
+      throw new HttpError(400, "expected a form");
+    return new URLSearchParams(await req.text());
+  }
+
+  const field = (f: URLSearchParams, name: string) => (f.get(name) ?? "").trim();
+
+  const validDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`));
+
+  /** Checks the fields a form shares; null, or the German sentence the form comes back with. */
+  function formProblem(v: { title: string; timezone: string; start_date: string; end_date?: string | null }) {
+    if (!v.title) return "Bitte einen Titel angeben.";
+    if (!v.timezone) return "Bitte eine Zeitzone angeben.";
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: v.timezone });
+    } catch {
+      return `„${v.timezone}“ ist keine Zeitzone. Beispiele: Europe/Berlin, Europe/Paris.`;
+    }
+    if (v.start_date && !validDate(v.start_date)) return "Der erste Tag ist kein Datum.";
+    if (v.end_date && !validDate(v.end_date)) return "Der letzte Tag ist kein Datum.";
+    if (v.start_date && v.end_date && v.end_date < v.start_date) return "Der letzte Tag liegt vor dem ersten.";
+    return null;
+  }
+
+  /** An integer form field within [min, max], else null. */
+  function formInt(v: string, min: number, max: number): number | null {
+    if (!/^-?\d{1,4}$/.test(v)) return null;
+    const n = Number(v);
+    return n >= min && n <= max ? n : null;
+  }
+
+  const shortDate = (iso: string, tz: string) =>
+    new Date(iso).toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric", timeZone: tz });
+
+  /** `extra.end_date`: a date, `open`, or undefined for a trip that has none. */
+  const endOf = (trip: TripRow): string | undefined => {
+    const e = (JSON.parse(trip.extra) as { end_date?: unknown }).end_date;
+    return typeof e === "string" ? e : undefined;
+  };
+
+  function settingsFormOf(trip: TripRow): SettingsForm {
+    const end = endOf(trip);
+    const privacy = privacyOf(trip);
+    return {
+      title: trip.title,
+      short_title: trip.short_title ?? "",
+      timezone: trip.timezone,
+      start_date: trip.start_date ?? "",
+      end_date: end === undefined ? null : end === "open" ? "" : end,
+      first_day: String(trip.day_offset + 1),
+      hide_camps: privacy.hide_camps,
+      delay_hours: String(privacy.delay_hours),
+    };
+  }
+
+  const NOTICES: Record<string, string> = {
+    saved: "Gespeichert.",
+    ended: "Die Reise endet heute.",
+    link: "Neuer Link angelegt; ihn teilen ab jetzt die Knöpfe der Reise.",
+    revoked: "Link widerrufen.",
+  };
+
+  function settings(
+    trip: TripRow,
+    o: { form?: SettingsForm; notice?: string | null; error?: string | null; status?: number } = {},
+  ): Response {
+    const token = editorToken(trip);
+    const handout = handoutUrl(trip);
+    const all = store.shares(trip.id);
+    const links = all
+      .filter((s) => s.role === "view" && !s.editor && !s.revoked_at && s.token)
+      .reverse()
+      .map((s) => {
+        const url = `${config.server.public_url}/${s.token}`;
+        return {
+          id: s.id,
+          label: s.label,
+          created: shortDate(s.created, trip.timezone),
+          url,
+          handedOut: url === handout,
+        };
+      });
+    const others = all.filter((s) => s.role === "view" && s.token && s.token !== token).map((s) => s.token as string);
+    const revoked = all
+      .filter((s) => s.role === "view" && !s.editor && s.revoked_at)
+      .reverse()
+      .map((s) => ({ label: s.label, revoked: shortDate(s.revoked_at as string, trip.timezone) }));
+    return html(
+      settingsPage(
+        {
+          slug: trip.slug,
+          heading: trip.title,
+          detail: tripDetail(trip),
+          open: token ? `/${token}` : null,
+          form: o.form ?? settingsFormOf(trip),
+          canEnd: endOf(trip) === "open",
+          links,
+          revoked,
+          drafts: token ? { to: token, from: others } : null,
+          notice: o.notice ?? null,
+          error: o.error ?? null,
+        },
+        ZONES,
+      ),
+      o.status,
+    );
+  }
+
+  async function createFromForm(req: Request): Promise<Response> {
+    const f = await form(req);
+    const v: NewTripForm = {
+      slug: field(f, "slug"),
+      title: field(f, "title"),
+      short_title: field(f, "short_title"),
+      timezone: field(f, "timezone"),
+      start_date: field(f, "start_date"),
+      end_date: field(f, "end_date"),
+    };
+    const again = (status: number, error: string) => html(newTripPage(v, ZONES, error), status);
+    const problem = formProblem(v);
+    if (problem) return again(400, problem);
+    if (!SLUG.test(v.slug) || v.slug.length > 40)
+      return again(400, "Der Kurzname besteht aus Kleinbuchstaben, Ziffern und Bindestrichen, höchstens 40.");
+    if (store.tripBySlug(v.slug)) return again(409, `Den Kurznamen „${v.slug}“ hat schon eine Reise.`);
+    if (!v.start_date) return again(400, "Bitte den ersten Tag angeben.");
+    try {
+      const created = makeTrip({
+        slug: v.slug,
+        title: v.title,
+        short_title: v.short_title || null,
+        timezone: v.timezone,
+        start_date: v.start_date,
+        extra: { end_date: v.end_date || "open" },
+      });
+      return see(`/${created.view.token}`);
+    } catch (e) {
+      if (e instanceof HttpError && e.status < 500) return again(e.status, `Nicht angelegt: ${e.message}`);
+      throw e;
+    }
+  }
+
+  async function saveSettings(trip: TripRow, req: Request): Promise<Response> {
+    const f = await form(req);
+    const had = settingsFormOf(trip);
+    const v: SettingsForm = {
+      title: field(f, "title"),
+      short_title: field(f, "short_title"),
+      timezone: field(f, "timezone"),
+      start_date: field(f, "start_date"),
+      // Only a trip that has an end has the field; any other keeps none.
+      end_date: had.end_date == null ? null : field(f, "end_date"),
+      first_day: field(f, "first_day"),
+      hide_camps: f.get("hide_camps") != null,
+      delay_hours: field(f, "delay_hours"),
+    };
+    const again = (status: number, error: string) => settings(trip, { form: v, error, status });
+    const problem = formProblem(v);
+    if (problem) return again(400, problem);
+    const first = formInt(v.first_day, -98, 100);
+    if (first == null) return again(400, "Der erste Tag heißt Tag … : eine ganze Zahl von -98 bis 100.");
+    const delay = formInt(v.delay_hours, 0, 8760);
+    if (delay == null) return again(400, "Stunden bis Notizen erscheinen: eine ganze Zahl von 0 bis 8760.");
+    const patch: TripPatch = {
+      title: v.title,
+      short_title: v.short_title || null,
+      timezone: v.timezone,
+      start_date: v.start_date || null,
+      privacy: { hide_camps: v.hide_camps, delay_hours: delay },
+      day_offset: first - 1,
+    };
+    if (v.end_date != null) patch.extra = { ...JSON.parse(trip.extra), end_date: v.end_date || "open" };
+    try {
+      changeTrip(trip, patch);
+    } catch (e) {
+      if (e instanceof HttpError && e.status < 500) return again(e.status, `Nicht gespeichert: ${e.message}`);
+      throw e;
+    }
+    return see(`/trips/${trip.slug}?ok=saved`);
+  }
+
+  /** The editor's trip pages under /trips/; the routes are in src/shared/api.ts. */
+  async function tripPages(req: Request, url: URL): Promise<Response> {
+    const path = url.pathname;
+    const post = req.method === "POST";
+    if (req.method === "GET" || req.method === "HEAD") {
+      const away = editorPage(req, path);
+      if (away) return away;
+    } else if (post) requireEditor(req);
+    else throw new HttpError(404, "not found");
+    if (path === "/trips/new") {
+      if (post) return createFromForm(req);
+      const blank = { slug: "", title: "", short_title: "", timezone: "", start_date: "", end_date: "" };
+      return html(newTripPage(blank, ZONES));
+    }
+    const m = /^\/trips\/([a-z0-9-]+)(\/.*)?$/.exec(path);
+    if (!m) throw new HttpError(404, "not found");
+    const trip = tripOrThrow(m[1] as string);
+    const rest = m[2] ?? "";
+    if (rest === "") {
+      if (post) return saveSettings(trip, req);
+      return settings(trip, { notice: NOTICES[url.searchParams.get("ok") ?? ""] ?? null });
+    }
+    if (!post) throw new HttpError(404, "not found");
+    if (rest === "/end") {
+      if (endOf(trip) !== "open") return settings(trip, { error: "Diese Reise hat kein offenes Ende.", status: 409 });
+      changeTrip(trip, { extra: { ...JSON.parse(trip.extra), end_date: localDate(now().getTime(), trip.timezone) } });
+      return see(`/trips/${trip.slug}?ok=ended`);
+    }
+    if (rest === "/shares") {
+      const label = field(await form(req), "label");
+      if (!label || label.length > LIMITS.label)
+        return settings(trip, {
+          error: `Bitte angeben, für wen der Link ist (höchstens ${LIMITS.label} Zeichen).`,
+          status: 400,
+        });
+      store.tx(() => newShare(trip, label));
+      return see(`/trips/${trip.slug}?ok=link`);
+    }
+    const r = /^\/shares\/(\d{1,12})\/revoke$/.exec(rest);
+    if (r) {
+      const target = store.shareById(trip.id, Number(r[1]));
+      if (target?.role !== "view" || target.editor || target.revoked_at)
+        return settings(trip, { error: "Diesen Link gibt es nicht (mehr).", status: 404 });
+      if (!editorToken(trip, target.id))
+        return settings(trip, {
+          error:
+            "Das ist der letzte Link dieser Reise; ohne ihn ließe sie sich nicht mehr öffnen. Leg zuerst einen neuen an.",
+          status: 409,
+        });
+      revoke(trip, target);
+      return see(`/trips/${trip.slug}?ok=revoked`);
+    }
+    throw new HttpError(404, "not found");
   }
 
   function validDay(n: number, raw: Record<string, unknown>): Day {
@@ -803,6 +1101,7 @@ export function createApp(deps: Deps): (req: Request) => Promise<Response> {
     }
 
     if (path === "/" && method === "GET") return home(req);
+    if (path.startsWith("/trips/")) return tripPages(req, url);
 
     // A map's page and API
     if (!config.maps.enabled && /^\/(m\/|preview\/|api\/m\/|api\/admin\/maps)/.test(path))
@@ -900,13 +1199,7 @@ export function createApp(deps: Deps): (req: Request) => Promise<Response> {
         if ((m = /^\/shares\/(\d+)$/.exec(rest)) && method === "DELETE") {
           const target = store.shareById(trip.id, Number(m[1]));
           if (!target || target.revoked_at) throw new HttpError(404, "share not found or already revoked");
-          if (target.editor && store.shares(trip.id).some((x) => x.base_id === target.id && !x.revoked_at))
-            throw new HttpError(409, "this view token carries a live edit link; revoke the edit share instead");
-          store.tx(() => {
-            store.revokeShare(trip.id, target.id, nowIso());
-            if (target.base_id != null) store.revokeShare(trip.id, target.base_id, nowIso());
-            store.bump(trip.id);
-          });
+          revoke(trip, target);
           return empty();
         }
         if ((m = /^\/days\/([^/]+)$/.exec(rest))) {
