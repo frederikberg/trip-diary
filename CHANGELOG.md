@@ -7,6 +7,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- In an open note the photo count stands in the line with day, time and km instead of on the first photo, where it looked like a button hiding more.
+
 ## [0.12.0] - 2026-11-22
 
 ### Added
