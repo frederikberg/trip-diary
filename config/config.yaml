@@ -1,0 +1,123 @@
+# trip-diary configuration: every value with its default. Loading order (later wins):
+#   this file → the file named by TRIP_CONFIG_OVERRIDE (sparse, optional) → ${VAR} placeholders
+#   resolved from the environment → TRIP_<SECTION>_<KEY> environment variables.
+# The app refuses to start when a value is missing or invalid, and while server.public_url or
+# immich.url still holds an example host (example.org, example.com, example.net): set them to your own.
+
+server:
+  # TCP port of the HTTP server.
+  port: 8080
+  # Public origin, used for the links the admin API hands out. No trailing slash.
+  public_url: https://trip.example.org
+  # Origin of the editing host: the only one where a request can be the editor's, and the
+  # `Origin` its writes must carry. No trailing slash. Must be set to your own while
+  # auth.editor_from_header is on.
+  edit_url: https://trip-edit.example.org
+  # Largest accepted request body, in bytes (the largest are a day's track and a note's text).
+  max_body_bytes: 26214400
+
+data:
+  # Holds trip.db.
+  dir: /data
+
+web:
+  # The built client (scripts/build-web.ts writes it).
+  dir: /app/dist
+
+admin:
+  # Bearer token for /api/admin/….
+  token: ${ADMIN_TOKEN}
+
+immich:
+  # Base URL of the Immich server as this app reaches it, without /api.
+  url: http://immich.example.org:2283
+  # API key with the permissions asset.read and asset.view.
+  api_key: ${IMMICH_API_KEY}
+  # How long a proxied request may wait for Immich's response headers, in milliseconds.
+  timeout_ms: 15000
+  # How long one proxied body (a video stream) may take in total, in milliseconds.
+  body_timeout_ms: 600000
+  # Long edge of Immich's preview images in pixels (Immich setting image.preview.size); the
+  # viewer zooms up to it.
+  preview_size: 1440
+  # How often every attached Immich asset is checked for being trashed or deleted, in minutes.
+  # Such media disappear from view links until the asset is back.
+  sweep_minutes: 60
+
+auth:
+  # Trust the identity header on the editing host as the editor's login. Turn on only where the
+  # reverse proxy puts a login in front of that whole host and blanks the header on every other
+  # host and route; off, nobody can edit and `/` answers 404.
+  editor_from_header: false
+  # Name of the request header that carries the logged-in address. oauth2-proxy behind a
+  # forward-auth hook sets X-Auth-Request-Email; other proxies use their own (Authelia:
+  # Remote-Email, Authentik: X-authentik-email).
+  identity_header: X-Auth-Request-Email
+  # Path on the editing host that ends the proxy's session; the editor's "Abmelden" links to it.
+  sign_out_path: /oauth2/sign_out
+  # Comma-separated addresses that may edit, compared without case. A proxy login alone grants
+  # nothing; the placeholder matches nobody.
+  allowed_emails: nobody@example.invalid
+
+maps:
+  # Maps of people and places (`/m/<token>`, its API and the maps in the admin API). Off: those
+  # routes answer 404 and the editor's start page lists trips only.
+  enabled: false
+  # Base URL of the Photon geocoder that address search asks, without a trailing slash.
+  geocoder_url: https://photon.komoot.io
+  # How long one geocoder request may take, in milliseconds.
+  geocoder_timeout_ms: 5000
+  # A failed geocoder request is tried once more after this pause, in milliseconds: the public
+  # server fails single requests now and then.
+  geocoder_retry_ms: 500
+  # Geocoder requests one map token may cause per minute; cached answers do not count.
+  geocode_per_minute: 60
+  # Writes one map token may make per minute. Far above real editing; it slows a runaway script
+  # or a leaked link. Admin routes have no budget.
+  writes_per_minute: 120
+  # How long a deleted map entry stays restorable, in days.
+  trash_days: 30
+  # History rows kept per map entry.
+  history_keep: 30
+  # Avatar uploads one map token may make per minute.
+  avatar_per_minute: 20
+
+meet:
+  # The meeting point on a map: car times from OSRM, train times from DB Navigator's unofficial
+  # API (German stations only). Needs maps.enabled. Off: its routes answer 404 and the map page
+  # shows no Treffpunkt button.
+  enabled: false
+  # OSRM with the table API. The demo server wants a real User-Agent, about one request a second at
+  # most, and no commercial use; https://routing.openstreetmap.de/routed-car answers the same.
+  car_url: https://router.project-osrm.org
+  # Gap between two OSRM requests, process-wide, in milliseconds.
+  car_interval_ms: 1100
+  # DB Navigator API, without a key.
+  train_url: https://app.services-bahn.de/mob
+  # Gap between two DB requests, process-wide, in milliseconds.
+  train_interval_ms: 1100
+  # How long one request to either may take, in milliseconds.
+  timeout_ms: 20000
+  # How long a fetched travel time is reused, in days.
+  cache_days: 30
+  # How long "no connection" is reused, in days: it may be a bad answer.
+  cache_none_days: 1
+  # Entries one selection may hold; each more means more requests to DB.
+  max_members: 30
+  # A train member this close to a station reaches it in 0 minutes.
+  station_radius_km: 10
+  # Stations whose train times are fetched: the best ones by car, plus the one nearest the middle.
+  train_candidates: 10
+  # The reference departure for train times: 1 Monday … 7 Sunday, at this hour in Europe/Berlin.
+  departure_weekday: 6
+  departure_hour: 9
+
+limits:
+  # Numbered notes one trip may hold.
+  max_notes: 1000
+  # Entries one map may hold.
+  max_entries: 500
+  # Largest avatar, in bytes.
+  avatar_bytes: 131072
+  # Longest side an avatar may have, in pixels.
+  avatar_px: 512

@@ -1,0 +1,33 @@
+# Two hosts, one app. The public host serves view links; the editing host sits behind the login.
+{$TRIP_HOST} {
+	# The admin API is for the machine running the app, never for the internet.
+	@admin path /api/admin /api/admin/*
+	respond @admin 403
+
+	reverse_proxy trip-diary:8080 {
+		# Nothing from the internet may claim an identity.
+		header_up -X-Auth-Request-Email
+	}
+}
+
+{$TRIP_EDIT_HOST} {
+	@admin path /api/admin /api/admin/*
+	respond @admin 403
+
+	handle /oauth2/* {
+		reverse_proxy oauth2-proxy:4180
+	}
+
+	handle {
+		forward_auth oauth2-proxy:4180 {
+			uri /oauth2/auth
+			# Replaces any header the client sent with the proxy's answer.
+			copy_headers X-Auth-Request-Email
+			@unauthenticated status 401
+			handle_response @unauthenticated {
+				redir * /oauth2/sign_in?rd={scheme}://{host}{uri}
+			}
+		}
+		reverse_proxy trip-diary:8080
+	}
+}

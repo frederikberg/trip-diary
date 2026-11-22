@@ -1,0 +1,17 @@
+services:
+  trip-diary:
+    build:
+      context: .
+      target: prod
+    image: trip-diary:local
+    ports:
+      - "8080:8080"
+    environment:
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
+      IMMICH_API_KEY: ${IMMICH_API_KEY}
+      TRIP_IMMICH_URL: ${IMMICH_URL}
+      TRIP_SERVER_PUBLIC_URL: http://localhost:8080
+    volumes:
+      - trip-data:/data
+volumes:
+  trip-data:

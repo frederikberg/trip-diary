@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="strict-origin">
+<meta name="theme-color" content="#fbf8f1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title><!--TITLE--></title>
+<link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/icon-180.png">
+<!--ASSETS-->
+</head>
+<body>
+<noscript><p style="padding:2em;font:16px system-ui">Dieses Reisetagebuch braucht JavaScript.</p></noscript>
+<div id="map" aria-label="Karte"></div>
+<nav id="strip" aria-label="Notizen in zeitlicher Reihenfolge"></nav>
+<div id="banner" role="status"></div>
+<section id="sheet" aria-live="polite"></section>
+<div class="fabs" id="fabs"></div>
+<div id="toast" role="status"></div>
+<section id="editor" aria-label="Text bearbeiten">
+  <header><h3 id="e-head"></h3><p class="hint">Markdown: **fett**, *kursiv*, - Liste. Ein Entwurf bleibt auf diesem Gerät, bis du sicherst.</p></header>
+  <input id="e-title" maxlength="200" autocomplete="off" autocapitalize="sentences" placeholder="Titel">
+  <textarea id="e-text" placeholder="Was war hier?" spellcheck="true" autocapitalize="sentences"></textarea>
+  <footer><button type="button" id="e-cancel">Abbrechen</button><button type="button" class="save" id="e-save">Sichern</button></footer>
+</section>
+<section id="picker" aria-label="Fotos aus Immich">
+  <header>
+    <div class="p-top"><h3 id="p-head"></h3><button type="button" class="ib" id="p-close" aria-label="Schließen"></button></div>
+    <div class="p-nav"><button type="button" id="p-earlier" aria-label="Frühere Fotos"></button><span id="p-window"></span><button type="button" id="p-later" aria-label="Spätere Fotos"></button></div>
+  </header>
+  <div id="p-grid"></div>
+  <form class="attach" id="p-paste" novalidate>
+    <label for="p-link">Oder einen Link aus Immich einfügen</label>
+    <input id="p-link" name="link" type="text" inputmode="url" placeholder="Immich-Link oder Foto-ID" autocomplete="off" autocapitalize="off" spellcheck="false"><button type="submit">Hinzufügen</button>
+    <p class="err" role="alert"></p>
+  </form>
+  <footer><button type="button" id="p-cancel">Abbrechen</button><button type="button" class="save" id="p-add" disabled>Anhängen</button></footer>
+</section>
+<button type="button" id="edit-badge" hidden>Bearbeiten</button>
+<div id="edit-menu" role="menu">
+  <a id="edit-trips" role="menuitem" href="/">Alle Reisen</a>
+  <button type="button" id="edit-stop" role="menuitem">Abmelden</button>
+</div>
+<script id="trip" type="application/json"><!--TRIP--></script>
+</body>
+</html>
