@@ -14,11 +14,10 @@ const SIZE = SECTION.size / SECTION.deviceScale;
 // Places the base map has to show, with room for a pin.
 const CITIES: [string, number, number][] = [
   ["Köln", 50.94, 6.96],
-  ["Freiburg", 47.99, 7.85],
+  ["Frankfurt", 50.11, 8.68],
   ["München", 48.14, 11.58],
-  ["Kiel", 54.32, 10.14],
-  ["Rostock", 54.09, 12.1],
-  ["Malmö", 55.6, 13.0],
+  ["Hamburg", 53.55, 9.99],
+  ["Berlin", 52.52, 13.4],
 ];
 for (const [name, lat, lon] of CITIES) {
   const at = project(lat, lon);

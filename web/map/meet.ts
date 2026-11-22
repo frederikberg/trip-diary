@@ -17,7 +17,7 @@ const link = (href: string, label: string) =>
 const when = (iso: string, o: Intl.DateTimeFormatOptions) =>
   new Date(iso).toLocaleString("de-DE", { timeZone: "Europe/Berlin", ...o });
 
-/** What changed since the result: `Till dazu`, `Leo 🚗→🚆`. */
+/** What changed since the result: `Alex dazu`, `Sam 🚗→🚆`. */
 export function changes(state: MeetState, entries: Entry[]): string[] {
   const based = state.result?.based_on ?? [];
   const name = (id: number) => entries.find((e) => e.id === id)?.name;

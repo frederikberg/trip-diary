@@ -299,19 +299,19 @@ async function phone(browser: Browser, stack: Stack) {
   // Search: people and addresses.
   await t.tapEl("#q");
   check("the search opens the sheet", (await state(p)).searching && (await state(p)).mode === "full", await state(p));
-  await p.keyboard.type("Lis");
+  await p.keyboard.type("Beisp");
   await p.waitForSelector(".hit");
   check("addresses appear with their Google link", (await p.$$(".hit a.out")).length === 2);
   check(
     "the hits show street and town",
-    (await p.$eval(".hit b", (e) => e.textContent)) === "Lister Meile 33, 30161 Hannover",
+    (await p.$eval(".hit b", (e) => e.textContent)) === "Beispielallee 33, 30161 Hannover",
   );
   await shot(p, "phone-06-search-address");
   await p.fill("#q", "");
   await p.keyboard.type("Hann");
   await p.waitForTimeout(100);
   check("people filter by their town", (await p.$$(".body .row")).length === 4, (await p.$$(".body .row")).length);
-  await p.fill("#q", "lis");
+  await p.fill("#q", "beisp");
   await p.waitForSelector(".hit");
   await t.tapEl('[data-act="hit"]');
   await settle(p, 1000);
@@ -323,7 +323,7 @@ async function phone(browser: Browser, stack: Stack) {
 
   // A new entry from it.
   await t.tapEl('[data-act="new-here"]');
-  check("the form opens with the address", (await p.inputValue(".p-address")) === "Lister Meile 33, 30161 Hannover");
+  check("the form opens with the address", (await p.inputValue(".p-address")) === "Beispielallee 33, 30161 Hannover");
   check("the form says the position is set", (await p.$eval(".status", (e) => e.textContent)) === "Position gesetzt.");
   await p.keyboard.type("Hanna");
   check("the name field got the focus", (await p.inputValue("#f-name")) === "Hanna");
@@ -381,7 +381,7 @@ async function phone(browser: Browser, stack: Stack) {
   check("the form is back", await p.isVisible("#f-save"));
   await p
     .waitForFunction(
-      () => (document.querySelector(".p-address") as HTMLInputElement)?.value !== "Lister Meile 33, 30161 Hannover",
+      () => (document.querySelector(".p-address") as HTMLInputElement)?.value !== "Beispielallee 33, 30161 Hannover",
       undefined,
       { timeout: 3000 },
     )
@@ -522,7 +522,7 @@ async function phone(browser: Browser, stack: Stack) {
     }).observe(body, { childList: true, subtree: true });
   });
   stack.geocoder.failNext = 2;
-  await p.keyboard.type("Lister Damm");
+  await p.keyboard.type("Beispieldamm");
   await p.waitForSelector(".hit", { timeout: 6000 });
   check(
     "single failures stay out of sight",
@@ -594,7 +594,7 @@ async function phone(browser: Browser, stack: Stack) {
 
   // An address joins an existing entry.
   await t.tapEl("#q");
-  await p.keyboard.type("Lister Damm");
+  await p.keyboard.type("Beispieldamm");
   await p.waitForSelector(".hit");
   await t.tapEl('[data-act="hit"]');
   await settle(p, 1000);
@@ -616,7 +616,7 @@ async function phone(browser: Browser, stack: Stack) {
   check(
     "the form keeps the entry's place and adds the new one",
     (await p.$$(".place-row")).length === 2 &&
-      (await p.inputValue(".place-row:nth-child(2) .p-address")).startsWith("Lister Damm"),
+      (await p.inputValue(".place-row:nth-child(2) .p-address")).startsWith("Beispieldamm"),
   );
   await t.tapEl(".place-row:nth-child(2) .p-label");
   await p.keyboard.type("Eltern");
@@ -836,7 +836,7 @@ async function twoEditors(browser: Browser, stack: Stack) {
   await edit(b);
   await a.p.fill(".place-row .p-label", "Daheim");
   await b.t.tapEl("#f-add");
-  await b.p.fill(".place-row:last-child .p-address", "Lister");
+  await b.p.fill(".place-row:last-child .p-address", "Beispiel");
   await b.p.waitForSelector(".place-row:last-child .sugg button");
   await b.t.tapEl(".place-row:last-child .sugg button");
   await a.t.tapEl("#f-save");
@@ -848,7 +848,7 @@ async function twoEditors(browser: Browser, stack: Stack) {
     "places: an edit and an added place both stay",
     places.length === before.length + 1 &&
       places[0]?.label === "Daheim" &&
-      !!places.at(-1)?.address.startsWith("Lister Meile"),
+      !!places.at(-1)?.address.startsWith("Beispielallee"),
     places,
   );
 

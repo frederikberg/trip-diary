@@ -23,8 +23,8 @@ const geo = fakeGeocoder([
     city: "Zürich",
     country: "Schweiz",
   },
-  { match: "Rathaus", lat: 50.77, lon: 6.08, name: "Rathaus", city: "Aachen", country: "Deutschland" },
-  { match: "Rathaus Zwei", lat: 50.77, lon: 6.08, name: "Rathaus", city: "Aachen", country: "Deutschland" },
+  { match: "Rathaus", lat: 50.77, lon: 6.08, name: "Rathaus", city: "Köln", country: "Deutschland" },
+  { match: "Rathaus Zwei", lat: 50.77, lon: 6.08, name: "Rathaus", city: "Köln", country: "Deutschland" },
 ]);
 const immich = fakeImmich();
 
@@ -63,7 +63,7 @@ describe("Geocoder", () => {
   test("names the country abroad, and a place by its name", async () => {
     const g = geocoder();
     expect((await g.search("t", "Musterstrasse"))[0]?.label).toBe("Musterstrasse, 8001 Zürich, Schweiz");
-    expect((await g.search("t", "Rathaus"))[0]?.label).toBe("Rathaus, Aachen");
+    expect((await g.search("t", "Rathaus"))[0]?.label).toBe("Rathaus, Köln");
   });
 
   test("the same label comes once", async () => {

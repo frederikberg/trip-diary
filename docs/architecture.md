@@ -135,7 +135,7 @@ Contract: the map section at the end of `src/shared/api.ts`.
   `/assets/map-fallback.jpg` (made-up pins, same script), and a composition that fails answers with it
   too. Assets are cached forever, so a new generic picture needs a new file name. Never names, addresses or a token in the tags: `?e=<id>` gets the same ones. `map-icon.svg`
   and `map-icon-180.png` are the page's icons. A new `SECTION` needs the script run again (it refuses
-  one that misses Aachen, Freiburg, München, Owschlag, Greifswald or Malmö) and both files committed.
+  one that misses Köln, Frankfurt, München, Hamburg or Berlin) and both files committed.
 - **Base map.** `web/map/style.json` is OpenFreeMap's positron restyled by `scripts/map-style.ts`
   (run by hand, output committed, bundled into the client, which OpenFreeMap asks for with modified
   styles). Tiles, sprite and glyphs come from `tiles.openfreemap.org`, fetched by the browser, so

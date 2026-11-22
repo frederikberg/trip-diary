@@ -13,8 +13,8 @@ afterAll(() => immich.stop());
 
 const STATIC = join(import.meta.dir, "../web/static");
 const HTML = "<head><!--OG--><title><!--TITLE--></title></head><script><!--MAP--></script>";
-const aachen = { lat: 50.78, lon: 6.08 };
-const malmoe = { lat: 55.6, lon: 13.0 };
+const west = { lat: 50.94, lon: 6.96 };
+const northeast = { lat: 53.55, lon: 9.99 };
 const rome = { lat: 41.9, lon: 12.5 };
 
 /** A web directory with the committed pictures under `assets`. */
@@ -51,7 +51,7 @@ const bytes = async (res: Response) => new Uint8Array(await res.arrayBuffer());
 describe("the preview picture", () => {
   test("the tag names an id that is neither token, the same from either link", async () => {
     const { made, add, image } = await setup();
-    await add("A", [aachen]);
+    await add("A", [west]);
     const read = await image(made.view.token);
     const write = await image(made.edit.token);
     expect(read).toBe(write);
@@ -61,8 +61,8 @@ describe("the preview picture", () => {
 
   test("answers 200 with a square JPEG for the id and 404 for anything else", async () => {
     const { app, made, add, image } = await setup();
-    await add("A", [aachen]);
-    await add("B", [malmoe]);
+    await add("A", [west]);
+    await add("B", [northeast]);
     const path = await image(made.edit.token);
     const res = await app.call(path);
     expect(res.status).toBe(200);
@@ -80,13 +80,13 @@ describe("the preview picture", () => {
 
   test("a change of the map changes the picture and its URL, a repeat does not", async () => {
     const { app, made, add, image } = await setup();
-    await add("A", [aachen]);
+    await add("A", [west]);
     const first = await image(made.view.token);
     const a = await bytes(await app.call(first));
     // A change that leaves the revision alone is not seen: the composed bytes are kept per revision.
     app.store.db.exec("UPDATE entry SET color = 5");
     expect(await bytes(await app.call(first))).toEqual(a);
-    await add("B", [malmoe]);
+    await add("B", [northeast]);
     const second = await image(made.view.token);
     expect(second).not.toBe(first);
     expect(await bytes(await app.call(second))).not.toEqual(a);
@@ -94,7 +94,7 @@ describe("the preview picture", () => {
 
   test("an entry's picture and colour show", async () => {
     const { app, made, edit, add, image } = await setup();
-    const e = await add("A", [aachen]);
+    const e = await add("A", [west]);
     const plain = await bytes(await app.call(await image(made.view.token)));
     const face = await new Bun.Image(await Bun.file(join(STATIC, "map-base.jpg")).bytes())
       .resize(64, 64)
@@ -116,15 +116,15 @@ describe("the preview picture", () => {
     expect(await image(made.view.token)).toBe("/assets/map-fallback.jpg");
     await add("Rom", [rome]);
     expect(await image(made.view.token)).toBe("/assets/map-fallback.jpg");
-    await add("A", [aachen, rome]);
+    await add("A", [west, rome]);
     expect(await image(made.view.token)).toMatch(/^\/preview\//);
     expect((await app.call("/assets/map-fallback.jpg")).status).toBe(200);
   });
 
   test("deleted entries leave the picture", async () => {
     const { app, made, edit, add, image } = await setup();
-    await add("A", [aachen]);
-    const b = await add("B", [malmoe]);
+    await add("A", [west]);
+    const b = await add("B", [northeast]);
     const both = await bytes(await app.call(await image(made.view.token)));
     await app.call(`${edit}/entries/${b.id}`, { method: "DELETE" });
     expect(await bytes(await app.call(await image(made.view.token)))).not.toEqual(both);
@@ -132,7 +132,7 @@ describe("the preview picture", () => {
 
   test("revoking a share replaces the id", async () => {
     const { app, made, add, image } = await setup();
-    await add("A", [aachen]);
+    await add("A", [west]);
     const before = await image(made.view.token);
     const shares = (await (await app.call("/api/admin/maps/m/shares", { admin: true })).json()) as MapShare[];
     await app.call(`/api/admin/maps/m/shares/${shares[1]?.id}`, { method: "DELETE", admin: true });
@@ -144,7 +144,7 @@ describe("the preview picture", () => {
 
   test("a failing composition answers with the generic picture", async () => {
     const { app, made, add, image } = await setup(["map-fallback.jpg"]);
-    await add("A", [aachen]);
+    await add("A", [west]);
     const res = await app.call(await image(made.view.token));
     expect(res.status).toBe(200);
     expect(await bytes(res)).toEqual(new Uint8Array(await Bun.file(join(STATIC, "map-fallback.jpg")).arrayBuffer()));
@@ -152,7 +152,7 @@ describe("the preview picture", () => {
 
   test("a burst composes once", async () => {
     const { app, made, add, image } = await setup();
-    await add("A", [aachen]);
+    await add("A", [west]);
     const path = await image(made.view.token);
     const all = await Promise.all(Array.from({ length: 20 }, async () => bytes(await app.call(path))));
     for (const b of all) expect(b).toEqual(all[0] as Uint8Array<ArrayBuffer>);
@@ -161,7 +161,7 @@ describe("the preview picture", () => {
 
 describe("the section", () => {
   test("holds the places it has to and leaves out the rest", () => {
-    for (const p of [aachen, malmoe, { lat: 47.99, lon: 7.85 }, { lat: 48.14, lon: 11.58 }, { lat: 54.4, lon: 9.5 }])
+    for (const p of [west, northeast, { lat: 50.11, lon: 8.68 }, { lat: 48.14, lon: 11.58 }, { lat: 52.52, lon: 13.4 }])
       expect(project(p.lat, p.lon)).not.toBeNull();
     expect(project(rome.lat, rome.lon)).toBeNull();
     expect(project(52, 40)).toBeNull();

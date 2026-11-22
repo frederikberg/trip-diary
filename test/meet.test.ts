@@ -259,12 +259,12 @@ describe("computing", () => {
 
   test("far from every station the result says so", async () => {
     const { add, put, compute } = await setup();
-    const a = await add("Malmö", place(55.6, 13.0));
+    const a = await add("Kopenhagen", place(55.68, 12.57));
     const b = await add("Berlin", place(52.5, 13.4));
     await put(a.id, { mode: "train" });
     await put(b.id, { mode: "train" });
     const { s } = await compute();
-    expect(s.result?.notes.join()).toContain("Malmö:");
+    expect(s.result?.notes.join()).toContain("Kopenhagen:");
     expect(s.result?.notes.join()).toContain("Anfahrt");
   });
 
