@@ -142,20 +142,28 @@ interface Built {
   prepared: PreparedTrip;
 }
 
-/** Built views by trip, revision and scope; a write bumps the revision, so an entry never goes stale. */
-const cache = new Map<string, Built>();
+/**
+ * The newest built view per trip and scope, with the revision and clock step it was built for. A
+ * write bumps the revision and replaces the entry, so a trip written to many times in a row (an
+ * import) holds one view in memory, not one per revision.
+ */
+const cache = new Map<string, { stamp: string; built: Built }>();
+
+/** How many built views are held (for tests). */
+export const cachedViews = () => cache.size;
 
 /** The whole trip as the clients see it. Callers must not mutate the result. */
 export function buildView(store: Store, t: TripRow, scope: ViewScope, now = Date.now()): Built {
   // A delay hides notes by age, so such a view also changes with the clock (in 5-minute steps).
   const delayed = !scope.editable && privacyOf(t).delay_hours > 0;
   const clock = delayed ? Math.floor(now / 300_000) : 0;
-  const key = `${t.id}:${t.rev}:${scope.base}:${scope.editable}:${scope.ids}:${scope.shareUrl}:${clock}`;
+  const key = `${t.id}:${scope.base}:${scope.editable}:${scope.ids}:${scope.shareUrl}`;
+  const stamp = `${t.rev}:${clock}`;
   const hit = cache.get(key);
-  if (hit) return hit;
+  if (hit?.stamp === stamp) return hit.built;
   const built = build(store, t, scope, clock * 300_000);
-  if (cache.size > 64) cache.clear();
-  cache.set(key, built);
+  if (!hit && cache.size >= 64) cache.clear();
+  cache.set(key, { stamp, built });
   return built;
 }
 
